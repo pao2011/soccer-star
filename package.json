@@ -1,0 +1,16 @@
+{
+  "name": "mini-soccer-star-style",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Juego móvil de fútbol de un solo jugador (Phaser 3)",
+  "scripts": {
+    "start": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview --host",
+    "test": "node tests/logic.test.mjs && node tests/sim.mjs 2 120",
+    "test:e2e": "node tests/e2e.mjs"
+  },
+  "dependencies": { "phaser": "3.80.1" },
+  "devDependencies": { "vite": "5.4.10" }
+}

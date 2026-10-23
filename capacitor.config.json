@@ -1,0 +1,6 @@
+{
+  "appId": "com.example.minisoccerstar",
+  "appName": "Mini Soccer Star Style",
+  "webDir": "dist",
+  "server": { "androidScheme": "https" }
+}
