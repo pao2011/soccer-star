@@ -11,6 +11,11 @@
     "test": "node tests/logic.test.mjs && node tests/sim.mjs 2 120",
     "test:e2e": "node tests/e2e.mjs"
   },
-  "dependencies": { "phaser": "3.80.1" },
-  "devDependencies": { "vite": "5.4.10" }
+  "dependencies": {
+    "phaser": "3.80.1",
+    "three": "^0.160.0"
+  },
+  "devDependencies": {
+    "vite": "5.4.10"
+  }
 }

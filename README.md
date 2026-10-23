@@ -2,7 +2,7 @@
 
 Juego móvil de fútbol de **un solo jugador** (controlas a tu futbolista; el resto del equipo lo mueve la IA), con cámara en perspectiva desde atrás, pases y tiros por gestos táctiles, modo carrera con ligas, objetivos, valoración individual, atributos, guardado local y audio 100 % sintetizado. Juego original: todo (campo, jugadores, escudos, sonidos) se genera por código; no hay recursos de terceros.
 
-Tecnología: HTML5 + CSS3 + JavaScript (ES modules) + **Phaser 3.80.1** (Canvas/WebGL) + Web Audio API + LocalStorage. Vite sólo se usa como servidor de desarrollo y empaquetador.
+Tecnología: HTML5 + CSS3 + JavaScript (ES modules) + **Three.js 0.160** (partido en **3D real**, WebGL) + **Phaser 3.80.1** (bucle y escenas, en modo headless) + Web Audio API + LocalStorage. Vite sólo se usa como servidor de desarrollo y empaquetador.
 
 ## Requisitos
 - Node.js 18 o superior (probado con Node 22) y npm.
@@ -38,7 +38,7 @@ En ajustes hay **modo zurdo**. El **tutorial interactivo** (7 pasos: mover, espr
 
 ## Funcionalidades (estado)
 **Completadas**
-- Campo con perspectiva real (proyección propia), césped a franjas, líneas reglamentarias, arcos con red, banderines, bancos, publicidad ficticia, gradas con público animado, sombras, indicador del jugador controlado, cámara que sigue balón + jugador con límites.
+- Partido en 3D: campo texturizado con líneas reglamentarias, porterías con postes/larguero/red, banderines, bancos, publicidad ficticia, gradas con público, focos, sombras, futbolistas 3D con articulaciones y dorsal, indicador del jugador controlado y cámara en tercera persona que sigue balón + jugador con límites.
 - Balón con física propia (altura, gravedad, fricción, rebotes, postes, larguero, red, goles sólo por la línea dentro del arco, saques de banda/puerta/esquina, balones aéreos, deflexiones al chocar con jugadores).
 - Futbolistas dibujados por código con animaciones: caminar, correr, esprintar, conducir, pasar, disparar, cabecear/saltar, celebrar, caer/levantarse, entrada, defender (agachado), portero con estirada. Dorsal en la espalda.
 - IA: compañeros (desmarques, espacios libres, apoyo, remates), defensas (marcaje, presión, entradas, despejes, errores ocasionales), porteros (posición, anticipación limitada, estiradas, atajar/rechazar, sacar). Dificultad Fácil/Normal/Difícil.
@@ -55,7 +55,7 @@ En ajustes hay **modo zurdo**. El **tutorial interactivo** (7 pasos: mover, espr
 - No hay faltas, fueras de juego, tarjetas ni penaltis; las entradas fallidas o exitosas hacen caer al jugador sin pitar falta.
 - Los demás partidos de la liga se simulan estadísticamente a partir de la valoración de los clubes (el tuyo siempre se juega).
 - El tope de FPS se aplica limitando la frecuencia de actualización/dibujo de la escena (no el bucle de Phaser).
-- Gráficos y sonidos procedurales: sencillos a propósito; no hay atlas de sprites externos.
+- Gráficos 3D y sonidos procedurales (primitivas, sin modelos ni texturas externas): sencillos a propósito. Sin sombras en tiempo real (sombras de mancha) para cuidar el rendimiento móvil.
 - **Sólo se ha probado en Chromium de escritorio sin interfaz** (Playwright, viewport móvil, render por software) y con simulaciones en Node. **No se ha probado en un dispositivo Android real**, así que el rendimiento en gama baja no está verificado (en la prueba, el coste de CPU por fotograma fue ≈ 2 ms).
 - El saque de banda/esquina del jugador espera su gesto (si no actúas en ~4,5 s, la IA lo saca por ti).
 
@@ -94,7 +94,7 @@ src/
     ProgressionManager.js  atributos, XP, valoración 1-10
     SaveManager.js    guardado versionado y validado
     AudioManager.js   audio sintetizado
-  render/             Camera (perspectiva), Pitch (campo/gradas), Actors (jugadores/balón/efectos)
+  render/             Camera (foco y seguimiento), Stage3D (escena Three.js: campo, gradas, jugadores, balón, efectos)
   ui/                 HUD, Menus (pantallas), MatchResults, avatar (SVG)
 tests/                logic.test.mjs, sim.mjs, e2e.mjs
 ```

@@ -26,10 +26,9 @@ class App {
     $('modal').addEventListener('input', (e) => this.ui.onInput(e));
     $('screen').addEventListener('change', (e) => { const s = e.target.dataset?.sel; if (s) this.ui.draft[s] = e.target.value; });
     this.game = new Phaser.Game({
-      type: Phaser.AUTO, parent: 'game', backgroundColor: '#07131f', scene: [BootScene, MatchScene],
+      type: Phaser.HEADLESS, // el dibujado 3D lo hace Three.js (Stage3D); Phaser aporta bucle y escenas
+       parent: 'game', backgroundColor: '#07131f', scene: [BootScene, MatchScene],
       scale: { mode: Phaser.Scale.RESIZE, width: window.innerWidth, height: window.innerHeight },
-      render: { antialias: true, powerPreference: 'high-performance', batchSize: 2048 },
-      input: { activePointers: 3, touch: { capture: true } },
       audio: { noAudio: true },
     });
     this.game.events.once('app-ready', () => this.ready());

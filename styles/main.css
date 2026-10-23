@@ -132,3 +132,5 @@ input:focus,select:focus{outline:0;border-color:var(--lime)}
 .set.tog{flex-direction:row;color:var(--ink);text-transform:none;letter-spacing:0;font-size:14px;justify-content:space-between}
 .panel>.lbl{margin-top:6px}
 .obj.fail{color:#ff8a94;opacity:.8}
+.aim-label{position:absolute;transform:translateX(-50%);font:900 18px var(--f);color:#fff;text-shadow:0 2px 0 #000,0 0 6px #000;white-space:nowrap;pointer-events:none;letter-spacing:1px}
+#game>canvas:not(.three){display:none}
