@@ -23,6 +23,17 @@
   #auto { left: 60px; top: 60px; background: rgba(5,10,25,.82); border: 2px solid #38bdf8; border-radius: 14px; padding: 16px 22px; font-size: 22px; line-height: 1.6; }
   #radar { left: 60px; top: 60px; width: 470px; background: rgba(40,5,5,.85); border: 2px solid #ef4444; border-radius: 14px; padding: 16px 22px; font-size: 22px; line-height: 1.6; }
   #radar h3 { margin: 0 0 6px; color: #fca5a5; font-size: 24px; }
+  .plabel { font-size: 16px; line-height: 1.25; text-align: center; }
+  .plabel small { display: block; font-weight: 500; font-size: 13px; }
+  .panel { left: 50px; top: 50px; width: 600px; background: rgba(5,10,25,.88); border: 2px solid #ffd75e; border-radius: 14px; padding: 18px 24px; font-size: 20px; }
+  .panel h2 { margin: 0 0 12px; color: #ffd75e; font-size: 28px; }
+  .panel table { width: 100%; border-collapse: collapse; }
+  .panel td { padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,.12); }
+  .panel td:last-child { text-align: right; font-weight: 700; white-space: nowrap; padding-left: 16px; }
+  .panel tr.total td { color: #ffd75e; font-size: 24px; border-bottom: 0; padding-top: 10px; }
+  .panel p { margin: 10px 0 0; font-size: 15px; color: #cbd5e1; }
+  .panel ol { margin: 0; padding-left: 30px; line-height: 1.45; }
+  .panel li { opacity: 0; margin: 6px 0; }
   #end { left: 0; right: 0; top: 0; bottom: 0; background: rgba(5,10,25,.78); text-align: center; padding-top: 180px; }
   #end h1 { font-size: 60px; margin: 0; color: #ffd75e; }
   #end p { font-size: 28px; margin: 18px 0; }
@@ -43,6 +54,15 @@
   <div class="label" id="lRad">Radar de velocidad</div>
   <div class="label" id="lDisp">Pantalla de velocidad</div>
   <div id="radar"><h3>⚡ Alerta automática al 911</h3>🚗 Exceso de velocidad: 98 km/h (límite 50)<br>🔢 Placa capturada: XYZ-987<br>📍 Ubicación y dirección enviadas<br>📷 Foto y video del cruce</div>
+  <div class="panel" id="cost"><h2>💲 Costo estimado por cruce</h2><table></table>
+    <p>Agregando el kit a un semáforo existente. Precios aproximados en dólares; varían según el país y el proveedor.</p></div>
+  <div class="panel" id="impl"><h2>🛠️ Cómo se implementa</h2><ol>
+    <li>Prueba piloto en los cruces con más accidentes.</li>
+    <li>Acuerdo entre la ciudad, la policía y el centro 911.</li>
+    <li>Instalar el kit en los semáforos que ya existen.</li>
+    <li>Conectar al 911 por red celular (4G/5G) y probar las llamadas.</li>
+    <li>Campaña para que la gente sepa cómo usarlo.</li>
+    <li>Medir resultados y ampliar a toda la ciudad.</li></ol></div>
   <div id="end"><h1>Míralo. Presiónalo. Repórtalo.</h1>
     <p>🔴 Botón 911 de un toque &nbsp; 🔊 Altavoz bidireccional &nbsp; 🎙️ Micrófono &nbsp; 📡 Radar de velocidad</p>
     <p>Reportes manos libres y alertas automáticas, justo en la intersección.</p></div>
@@ -61,7 +81,7 @@ scene.background = new THREE.Color(0x1a2540);
 scene.fog = new THREE.Fog(0x1a2540, 60, 140);
 const camera = new THREE.PerspectiveCamera(50, W / H, 0.05, 300);
 
-scene.add(new THREE.HemisphereLight(0x9fb8ff, 0x303030, 1.0));
+const hemi = new THREE.HemisphereLight(0x9fb8ff, 0x303030, 1.0); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff1d6, 1.2);
 sun.position.set(30, 40, 20);
 sun.castShadow = true;
@@ -75,7 +95,12 @@ const box = (w, h, d, m) => mesh(new THREE.BoxGeometry(w, h, d), m);
 const cyl = (r, h, m, seg = 24, r2 = r) => mesh(new THREE.CylinderGeometry(r, r2, h, seg), m);
 const sph = (r, m, seg = 20) => mesh(new THREE.SphereGeometry(r, seg, Math.ceil(seg * 0.75)), m);
 const cap = (r, len, m) => mesh(new THREE.CapsuleGeometry(r, len, 6, 14), m);
-const at = (o, x, y, z, parent) => { o.position.set(x, y, z); (parent || scene).add(o); return o; };
+let tgt = scene; // default parent for at(); switched per part so each part can be pulled apart later
+const at = (o, x, y, z, parent) => { o.position.set(x, y, z); (parent || tgt).add(o); return o; };
+const parts = [];
+function part(name, desc, anchor, off) {
+  const g = new THREE.Group(); g.userData = { name, desc, anchor, off }; scene.add(g); parts.push(g); return (tgt = g);
+}
 function canvasTex(w, h, draw) {
   const c = document.createElement('canvas'); c.width = w; c.height = h;
   draw(c.getContext('2d'), w, h);
@@ -193,6 +218,7 @@ at(cyl(0.27, 0.05, metal, 16), bin.position.x, 1.02, bin.position.z);
 
 // ---------- Semáforo SOS at corner (6, 0, 6) ----------
 const P = new THREE.Vector3(6, 0.2, 6);
+const poleG = part('Poste y brazo', 'Estructura de acero', new THREE.Vector3(6, 3.2, 6), new THREE.Vector3(0, 0, 0));
 at(cyl(0.38, 0.25, metal, 24, 0.42), P.x, P.y + 0.12, P.z);
 for (let i = 0; i < 4; i++) at(cyl(0.035, 0.08, chrome, 8), P.x + Math.cos(i * Math.PI / 2 + 0.78) * 0.32, P.y + 0.27, P.z + Math.sin(i * Math.PI / 2 + 0.78) * 0.32);
 at(cyl(0.13, 6.5, metal, 24, 0.19), P.x, P.y + 3.5, P.z);
@@ -201,6 +227,7 @@ const brace = at(cyl(0.035, 2.2, metal, 8), P.x - 0.85, 5.75, P.z); brace.rotati
 at(cyl(0.16, 0.12, metal, 16), P.x, 6.32, P.z); // mast collar
 // signal head
 const SH = new THREE.Vector3(1.8, 5.15, P.z);
+part('Semáforo LED', 'Luces roja, amarilla y verde', SH, new THREE.Vector3(-1.2, 0.8, 0.6));
 at(box(0.06, 0.45, 0.06, metal), SH.x, 6.05, SH.z); // hanger
 at(box(0.85, 2.55, 0.62, mat(0x1d2b1d, { roughness: 0.5 })), SH.x, SH.y, SH.z);
 at(box(1.35, 3.05, 0.04, mat(0xffd21f)), SH.x, SH.y, SH.z + 0.33); // reflective border
@@ -215,6 +242,7 @@ const lamps = [0xff2a2a, 0xffc21a, 0x22ff66].map((c, i) => {
   return m;
 });
 // street name signs
+tgt = poleG;
 const signTex = (txt) => textTex(txt, 512, 128, '#1b6b36', '#fff', 'bold 64px Arial');
 const nameSign = at(box(1.9, 0.38, 0.03, [metal, metal, metal, metal, mat(0xffffff, { map: signTex('Av. Principal') }), mat(0xffffff, { map: signTex('Av. Principal') })]), P.x - 2.4, 6.65, P.z);
 nameSign.rotation.y = Math.PI;
@@ -223,10 +251,12 @@ at(box(0.4, 0.5, 0.3, mat(0x1d2b1d)), P.x + 0.32, 3.1, P.z);
 const ped = at(plane(0.3, 0.3, textTex('✋', 128, 128, '#111', '#ff8a00', '96px sans-serif')), P.x + 0.32, 3.1, P.z + 0.155);
 ped.material.emissive = new THREE.Color(0xffffff); ped.material.emissiveMap = ped.material.map; ped.material.emissiveIntensity = 0.8;
 // intersection camera dome
+part('Cámara lectora de placas', 'Foto y video del cruce', new THREE.Vector3(P.x - 0.9, 6.05, P.z), new THREE.Vector3(-0.6, 1.6, 0.6));
 at(box(0.06, 0.25, 0.06, metal), P.x - 0.9, 6.15, P.z);
 at(mesh(new THREE.SphereGeometry(0.17, 20, 12, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), glass), P.x - 0.9, 6.02, P.z);
 at(cyl(0.18, 0.06, mat(0xeeeeee)), P.x - 0.9, 6.04, P.z);
 // beacon on top
+part('Baliza azul', 'Avisa que hay una alerta', new THREE.Vector3(P.x, 6.95, P.z), new THREE.Vector3(0.9, 1.6, 0));
 at(cyl(0.2, 0.15, metal, 20), P.x, 6.85, P.z);
 const beaconMat = mat(0x2266ff, { emissive: 0x2266ff, emissiveIntensity: 0, transparent: true, opacity: 0.85, roughness: 0.1 });
 const beacon = at(mesh(new THREE.SphereGeometry(0.22, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2), beaconMat), P.x, 6.92, P.z);
@@ -239,6 +269,7 @@ const soundRings = [0, 1, 2].map(() => { const m = new THREE.Mesh(new THREE.Ring
 
 // speed radar on the mast arm, aimed at oncoming (northbound) traffic
 const RAD = new THREE.Vector3(3.3, 6.05, P.z);
+part('Radar de velocidad', 'Mide la velocidad de los autos', RAD, new THREE.Vector3(-0.6, 0.9, 1.4));
 at(box(0.08, 0.25, 0.08, metal), RAD.x, 6.2, RAD.z);
 at(box(0.5, 0.35, 0.35, mat(0xe5e7eb, { metalness: 0.3, roughness: 0.4 })), RAD.x, RAD.y, RAD.z);
 at(cyl(0.14, 0.04, black, 24), RAD.x, RAD.y, RAD.z - 0.19).rotation.x = Math.PI / 2;
@@ -251,6 +282,7 @@ beam.geometry.translate(0, -13, 0); beam.geometry.rotateX(-Math.PI / 2); // tip 
 beam.position.copy(RAD); beam.position.z -= 0.2; scene.add(beam); beam.lookAt(-2, 0.5, -26);
 // "SU VELOCIDAD" display on the pole, facing oncoming traffic
 const DISP = new THREE.Vector3(P.x - 0.45, 3.9, P.z - 0.05);
+part('Pantalla de velocidad', 'Muestra tu velocidad', DISP, new THREE.Vector3(-1.6, 0.2, 1.0));
 at(box(0.3, 0.1, 0.1, metal), P.x - 0.25, DISP.y, P.z);
 at(box(0.85, 1.05, 0.12, mat(0x1f2937, { metalness: 0.4 })), DISP.x, DISP.y, DISP.z);
 const dispCanvas = document.createElement('canvas'); dispCanvas.width = 256; dispCanvas.height = 320;
@@ -273,6 +305,7 @@ drawDisplay('--');
 
 // ---------- emergency call box (faces +z) ----------
 const CB = new THREE.Vector3(P.x, 1.5, P.z + 0.3), FZ = CB.z + 0.135; // FZ = front face
+part('Caja SOS', 'Botón, altavoz y micrófono', CB, new THREE.Vector3(0.3, 0.6, 2.0));
 const rr = new THREE.Shape(), bw = 0.33, bh = 0.5, br = 0.06;
 rr.moveTo(-bw + br, -bh); rr.lineTo(bw - br, -bh); rr.quadraticCurveTo(bw, -bh, bw, -bh + br); rr.lineTo(bw, bh - br);
 rr.quadraticCurveTo(bw, bh, bw - br, bh); rr.lineTo(-bw + br, bh); rr.quadraticCurveTo(-bw, bh, -bw, bh - br);
@@ -311,6 +344,21 @@ at(cyl(0.05, 0.05, chrome, 16), 0, 0, 0, btn).rotation.x = Math.PI / 2;
 const capM = at(mesh(new THREE.SphereGeometry(0.11, 28, 14, 0, Math.PI * 2, 0, Math.PI / 2), btnMat), 0, 0, 0.03, btn);
 capM.rotation.x = Math.PI / 2; capM.scale.y = 0.45;
 at(plane(0.5, 0.07, textTex('PULSE PARA LLAMAR AL 911', 512, 72, null, '#fff', 'bold 34px Arial'), true), CB.x, CB.y - 0.37, FZ + 0.008);
+
+// ---------- control cabinet at the pole base (faces +z) ----------
+const CC = new THREE.Vector3(P.x + 0.75, P.y, P.z - 0.35);
+part('Gabinete de control', 'Computadora, 4G/5G y batería', new THREE.Vector3(CC.x, 0.8, CC.z), new THREE.Vector3(1.8, 0.3, 1.0));
+at(box(0.72, 0.1, 0.5, mat(0x9a9a9a, { roughness: 0.9 })), CC.x, CC.y + 0.05, CC.z); // concrete plinth
+at(box(0.6, 1.1, 0.4, mat(0x8f99a3, { metalness: 0.5, roughness: 0.4 })), CC.x, CC.y + 0.65, CC.z);
+at(box(0.66, 0.04, 0.46, mat(0x7a838c, { metalness: 0.5 })), CC.x, CC.y + 1.22, CC.z); // lid
+at(box(0.01, 0.95, 0.01, black), CC.x, CC.y + 0.65, CC.z + 0.201); // door seam
+at(box(0.04, 0.12, 0.03, chrome), CC.x + 0.06, CC.y + 0.7, CC.z + 0.21); // handle
+for (let i = 0; i < 5; i++) at(box(0.18, 0.012, 0.01, black), CC.x - 0.16, CC.y + 0.95 - i * 0.04, CC.z + 0.201); // vents
+at(plane(0.22, 0.1, textTex('CONTROL 911', 256, 110, '#ffd21f', '#111', 'bold 40px Arial')), CC.x - 0.16, CC.y + 0.5, CC.z + 0.202);
+at(cyl(0.015, 0.4, black, 8), CC.x + 0.22, CC.y + 1.42, CC.z - 0.1); // 4G/5G antenna
+at(sph(0.025, black, 8), CC.x + 0.22, CC.y + 1.62, CC.z - 0.1);
+const conduit = at(cyl(0.04, 0.6, metal, 10), CC.x - 0.45, CC.y + 0.35, CC.z + 0.12); conduit.rotation.z = Math.PI / 2.6;
+tgt = scene;
 
 // ---------- witness ----------
 function makePerson() {
@@ -429,6 +477,8 @@ const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 const ss = (a, b, t) => { const x = clamp((t - a) / (b - a), 0, 1); return x * x * (3 - 2 * x); };
 const fade = (t, a, b, f = 0.5) => ss(a, a + f, t) * (1 - ss(b - f, b, t));
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
+// parts / cost / implementation scene; times match the narration in mux.sh
+const X = { start: 55, explode: 57.5, labels: 60, cost: 76, impl: 89.5, rebuild: 104, end: 107.5, dur: 114 };
 const shots = [ // [time, camera pos, look target]
   [0, V(3, 26, 48), V(0, 2, 0)],
   [4, V(3, 14, 34), V(0, 2, 0)],
@@ -449,8 +499,16 @@ const shots = [ // [time, camera pos, look target]
   [50.6, V(-6.5, 2.8, -21), V(0, 4, 6)],
   [52, V(12, 9, -14), V(5, 5, 6)],
   [55, V(13, 10, -16), V(5, 5.5, 6)],
-  [56.5, V(-3, 22, 46), V(0, 2, 6)],
-  [62, V(-3, 28, 54), V(0, 2, 6)],
+  // orbit: lights, radar and speed sign face -z (traffic); call box and cabinet face +z (sidewalk)
+  [X.start + 1.8, V(14.3, 6.3, -12.2), V(4.3, 5, 6)],
+  [X.labels + 3, V(13.7, 6.3, -14.2), V(4.3, 5, 6)],
+  [X.labels + 8.5, V(21.4, 6.4, 4.6), V(4.3, 5, 6.5)],
+  [X.cost - 1, V(13, 6.8, 22.3), V(4.3, 5, 6.5)],
+  [X.cost, V(15, 7, 23), V(0.6, 4.8, 8.8)], // model on the right, panel on the left
+  [X.rebuild, V(16.5, 7, 22), V(0.8, 4.8, 8.6)],
+  [X.rebuild + 2.5, V(14.3, 6.5, 22), V(4.3, 5, 6.5)],
+  [X.end + 1, V(-3, 22, 46), V(0, 2, 6)],
+  [X.dur, V(-3, 28, 54), V(0, 2, 6)],
 ];
 function camAt(t) {
   let i = 0; while (i < shots.length - 2 && t > shots[i + 1][0]) i++;
@@ -470,9 +528,33 @@ const captions = [
   [26.3, 34.5, 'Habla manos libres por el altavoz y el micrófono: da la placa, el color, la marca y el modelo.'],
   [34.5, 43.5, 'La central recibe tu ubicación al instante y envía oficiales a detener al conductor.'],
   [44, 55, 'Además, mide la velocidad con radar: si un auto va demasiado rápido, alerta al 911 automáticamente.'],
+  [X.start, X.cost, '¿Cómo funciona por dentro? Veamos cada parte.'],
+  [X.cost, X.impl, 'Costo aproximado de agregar el kit a un semáforo que ya existe.'],
+  [X.impl, X.end, 'Implementación paso a paso.'],
 ];
 
-window.DURATION = 62;
+window.DURATION = X.dur;
+const costRows = [
+  ['Caja SOS (botón, altavoz, micrófono)', 2500], ['Radar de velocidad', 2500], ['Pantalla de velocidad LED', 2500],
+  ['Cámara lectora de placas', 3500], ['Baliza azul LED', 200], ['Gabinete de control (computadora, 4G/5G, batería)', 3000],
+  ['Instalación, cableado y permisos', 3000],
+];
+const usd = n => 'US$ ' + n.toLocaleString('en-US');
+const costTotal = costRows.reduce((a, r) => a + r[1], 0);
+console.assert(costTotal === 17200, 'narration says ~17,000 per intersection');
+ui('cost').querySelector('table').innerHTML = costRows.map(([n, v]) => `<tr><td>${n}</td><td>${usd(v)}</td></tr>`).join('') +
+  `<tr class="total"><td>Total por cruce</td><td>≈ ${usd(costTotal)}</td></tr><tr><td>Operación (datos y mantenimiento)</td><td>≈ US$ 80/mes</td></tr>`;
+// "studio" look for the parts scene: hide the city, show a plain floor with a grid
+const studioHide = scene.children.filter(o => !parts.includes(o) && !o.isLight &&
+  ![drunk, police, speeder, person.g, beam, ...traffic, ...signalRings, ...soundRings].includes(o));
+const studioFloor = mesh(new THREE.CircleGeometry(16, 64), mat(0x2a3344, { roughness: 0.9 }));
+studioFloor.rotation.x = -Math.PI / 2; at(studioFloor, 4.3, 0.19, 6.5);
+const studioGrid = at(new THREE.GridHelper(32, 32, 0x3b82f6, 0x1e293b), 4.3, 0.2, 6.5);
+const cityBg = scene.background.clone(), studioBg = new THREE.Color(0x1b2436);
+const plabels = parts.map(g => {
+  const d = document.createElement('div'); d.className = 'label plabel';
+  d.innerHTML = `${g.userData.name}<small>${g.userData.desc}</small>`; ui('ui').appendChild(d); return d;
+});
 window.render = function (t) {
   const ph = (t % 20) / 20, st = ph < 0.6 ? 2 : ph < 0.7 ? 1 : 0;
   lamps.forEach((m, i) => m.emissiveIntensity = i === st ? 2.2 : 0.05);
@@ -496,7 +578,15 @@ window.render = function (t) {
   const flash = Math.floor(t * 6) % 2;
   redM.emissiveIntensity = flash ? 3 : 0.1; blueM.emissiveIntensity = flash ? 0.1 : 3;
   pLight.color.set(flash ? 0xff0000 : 0x0044ff); pLight.intensity = police.visible ? 40 : 0;
-  traffic.forEach((c, i) => { const x = ((t * 8 + i * 30) % 120) - 60; c.position.set(x, 0.2, i % 2 ? 2 : -2); c.rotation.y = i % 2 ? -Math.PI / 2 : Math.PI / 2; c.visible = t < 4 || t > 55; });
+  traffic.forEach((c, i) => { const x = ((t * 8 + i * 30) % 120) - 60; c.position.set(x, 0.2, i % 2 ? 2 : -2); c.rotation.y = i % 2 ? -Math.PI / 2 : Math.PI / 2; c.visible = t < 4 || t > X.end; });
+  const ex = ss(X.explode, X.explode + 2.5, t) * (1 - ss(X.rebuild, X.rebuild + 2.5, t));
+  parts.forEach(g => g.position.copy(g.userData.off).multiplyScalar(ex * 1.3));
+  person.g.visible = t < X.start || t > X.end;
+  const studio = t > X.start + 1.8 && t < X.rebuild + 3;
+  studioHide.forEach(o => o.visible = !studio);
+  studioFloor.visible = studioGrid.visible = studio;
+  scene.background = studio ? studioBg : cityBg;
+  hemi.intensity = studio ? 2.2 : 1.0;
 
   // button press, beacon, 911 signal
   const pressed = t > 20.5;
@@ -541,7 +631,14 @@ window.render = function (t) {
   proj(RAD, ui('lRad'), 40); ui('lRad').style.opacity = lr;
   proj(DISP, ui('lDisp'), -90, -40); ui('lDisp').style.opacity = lr;
   ui('radar').style.opacity = fade(t, 50.6, 55.3);
-  ui('end').style.opacity = ss(55.5, 56.5, t);
+  parts.forEach((g, i) => {
+    proj(g.userData.anchor.clone().add(g.position), plabels[i], 30);
+    plabels[i].style.opacity = fade(t, X.labels + i * 1.6, X.cost);
+  });
+  ui('cost').style.opacity = fade(t, X.cost + 0.3, X.impl);
+  ui('impl').style.opacity = fade(t, X.impl + 0.3, X.end);
+  ui('impl').querySelectorAll('li').forEach((li, i) => li.style.opacity = ss(X.impl + 1 + i * 2.4, X.impl + 1.5 + i * 2.4, t));
+  ui('end').style.opacity = ss(X.end, X.end + 1, t);
   renderer.render(scene, camera);
 };
 window.render(0);
