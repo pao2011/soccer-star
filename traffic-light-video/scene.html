@@ -21,6 +21,8 @@
   #info h3 { margin: 0 0 10px; color: #ffd75e; font-size: 24px; }
   #info div { margin: 8px 0; opacity: 0; }
   #auto { left: 60px; top: 60px; background: rgba(5,10,25,.82); border: 2px solid #38bdf8; border-radius: 14px; padding: 16px 22px; font-size: 22px; line-height: 1.6; }
+  #radar { left: 60px; top: 60px; width: 470px; background: rgba(40,5,5,.85); border: 2px solid #ef4444; border-radius: 14px; padding: 16px 22px; font-size: 22px; line-height: 1.6; }
+  #radar h3 { margin: 0 0 6px; color: #fca5a5; font-size: 24px; }
   #end { left: 0; right: 0; top: 0; bottom: 0; background: rgba(5,10,25,.78); text-align: center; padding-top: 180px; }
   #end h1 { font-size: 60px; margin: 0; color: #ffd75e; }
   #end p { font-size: 28px; margin: 18px 0; }
@@ -38,9 +40,12 @@
   <div id="info"><h3>Datos que puedes dar</h3>
     <div>🔢 Número de placa</div><div>🎨 Color</div><div>🚗 Marca y modelo</div><div>🧭 Dirección en que va</div><div>⚠️ Lo que viste</div></div>
   <div id="auto">📍 Ubicación enviada automáticamente<br>🕒 Hora registrada<br>📷 Foto de la cámara del cruce<br>🔵 La baliza parpadea: la ayuda va en camino</div>
+  <div class="label" id="lRad">Radar de velocidad</div>
+  <div class="label" id="lDisp">Pantalla de velocidad</div>
+  <div id="radar"><h3>⚡ Alerta automática al 911</h3>🚗 Exceso de velocidad: 98 km/h (límite 50)<br>🔢 Placa capturada: XYZ-987<br>📍 Ubicación y dirección enviadas<br>📷 Foto y video del cruce</div>
   <div id="end"><h1>Míralo. Presiónalo. Repórtalo.</h1>
-    <p>🔴 Botón 911 de un toque &nbsp; 🔊 Altavoz bidireccional &nbsp; 🎙️ Micrófono</p>
-    <p>Reportes manos libres, justo en la intersección.</p></div>
+    <p>🔴 Botón 911 de un toque &nbsp; 🔊 Altavoz bidireccional &nbsp; 🎙️ Micrófono &nbsp; 📡 Radar de velocidad</p>
+    <p>Reportes manos libres y alertas automáticas, justo en la intersección.</p></div>
 </div>
 <script src="../node_modules/three/build/three.min.js"></script>
 <script>
@@ -165,7 +170,7 @@ function tree(x, z) {
     at(c, x + (rnd() - 0.5) * 0.9, 2.8 + rnd() * 0.8, z + (rnd() - 0.5) * 0.9);
   }
 }
-for (const z of [-44, -34, -24, -14]) { tree(-7, z); tree(7, z); }
+for (const z of [-44, -34, -24, -14]) { if (z < -30) tree(-7, z); tree(7, z); } // west side kept clear for the radar shot
 for (const x of [-44, -34, -24, -14]) { tree(x, 7); tree(x, -7); }
 tree(-7, 14);
 function streetLamp(x, z, dir) {
@@ -231,6 +236,40 @@ const beaconLight = at(new THREE.PointLight(0x3377ff, 0, 25), P.x, 7.1, P.z);
 const ringMat = new THREE.MeshBasicMaterial({ color: 0x66aaff, transparent: true, side: THREE.DoubleSide });
 const signalRings = [0, 1, 2].map(() => { const m = new THREE.Mesh(new THREE.TorusGeometry(1, 0.05, 8, 48), ringMat.clone()); m.rotation.x = Math.PI / 2; scene.add(m); return m; });
 const soundRings = [0, 1, 2].map(() => { const m = new THREE.Mesh(new THREE.RingGeometry(0.9, 1, 40), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, side: THREE.DoubleSide })); scene.add(m); return m; });
+
+// speed radar on the mast arm, aimed at oncoming (northbound) traffic
+const RAD = new THREE.Vector3(3.3, 6.05, P.z);
+at(box(0.08, 0.25, 0.08, metal), RAD.x, 6.2, RAD.z);
+at(box(0.5, 0.35, 0.35, mat(0xe5e7eb, { metalness: 0.3, roughness: 0.4 })), RAD.x, RAD.y, RAD.z);
+at(cyl(0.14, 0.04, black, 24), RAD.x, RAD.y, RAD.z - 0.19).rotation.x = Math.PI / 2;
+at(cyl(0.11, 0.045, mat(0x334155, { metalness: 0.6, roughness: 0.2 }), 24), RAD.x, RAD.y, RAD.z - 0.2).rotation.x = Math.PI / 2;
+const radLedMat = mat(0x22ff66, { emissive: 0x22ff66, emissiveIntensity: 1.5 });
+at(sph(0.025, radLedMat, 10), RAD.x + 0.18, RAD.y + 0.12, RAD.z - 0.18);
+const beamMat = new THREE.MeshBasicMaterial({ color: 0xff4444, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });
+const beam = new THREE.Mesh(new THREE.ConeGeometry(1.6, 26, 32, 1, true), beamMat);
+beam.geometry.translate(0, -13, 0); beam.geometry.rotateX(-Math.PI / 2); // tip at origin, opening along +z
+beam.position.copy(RAD); beam.position.z -= 0.2; scene.add(beam); beam.lookAt(-2, 0.5, -26);
+// "SU VELOCIDAD" display on the pole, facing oncoming traffic
+const DISP = new THREE.Vector3(P.x - 0.45, 3.9, P.z - 0.05);
+at(box(0.3, 0.1, 0.1, metal), P.x - 0.25, DISP.y, P.z);
+at(box(0.85, 1.05, 0.12, mat(0x1f2937, { metalness: 0.4 })), DISP.x, DISP.y, DISP.z);
+const dispCanvas = document.createElement('canvas'); dispCanvas.width = 256; dispCanvas.height = 320;
+const dispTex = new THREE.CanvasTexture(dispCanvas);
+const disp = at(new THREE.Mesh(new THREE.PlaneGeometry(0.75, 0.94), new THREE.MeshBasicMaterial({ map: dispTex })), DISP.x, DISP.y, DISP.z - 0.065);
+disp.rotation.y = Math.PI;
+let dispVal = null;
+function drawDisplay(v) {
+  if (v === dispVal) return; dispVal = v;
+  const g = dispCanvas.getContext('2d'), fast = v !== '--' && +v > 50;
+  g.fillStyle = '#fff'; g.fillRect(0, 0, 256, 320);
+  g.fillStyle = '#111'; g.textAlign = 'center'; g.font = 'bold 30px Arial';
+  g.fillText('LÍMITE', 128, 34); g.font = 'bold 54px Arial'; g.fillText('50 km/h', 128, 88);
+  g.fillStyle = '#000'; g.fillRect(14, 112, 228, 194);
+  g.fillStyle = fast ? '#ff2a2a' : '#ffcc00'; g.font = 'bold 26px Arial'; g.fillText(fast ? '¡MUY RÁPIDO!' : 'SU VELOCIDAD', 128, 146);
+  g.font = 'bold 110px Arial'; g.fillText(v, 128, 270);
+  dispTex.needsUpdate = true;
+}
+drawDisplay('--');
 
 // ---------- emergency call box (faces +z) ----------
 const CB = new THREE.Vector3(P.x, 1.5, P.z + 0.3), FZ = CB.z + 0.135; // FZ = front face
@@ -383,6 +422,7 @@ at(box(0.3, 0.14, 0.55, redM), -0.35, 1.62, 0.33, pol.c);
 at(box(0.3, 0.14, 0.55, blueM), -0.35, 1.62, -0.33, pol.c);
 const pLight = new THREE.PointLight(0xff0000, 0, 15); pLight.position.set(0, 2, 0); police.add(pLight);
 const traffic = [0x3b82f6, 0x9ca3af, 0x10b981].map(c => makeCar(c).g);
+const speeder = makeCar(0x1e40af, 'XYZ-987').g;
 
 // ---------- timeline ----------
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
@@ -396,14 +436,21 @@ const shots = [ // [time, camera pos, look target]
   [11.5, V(9, 3, 16), V(-2, 1, 4)],
   [13.5, V(5.2, 1.9, 9.2), V(6, 1.55, 6.3)],
   [19, V(5.4, 1.75, 8.2), V(6, 1.6, 6.3)],
-  [20.5, V(14, 6, 18), V(6, 4, 6)],
-  [24, V(13, 7, 17), V(6, 4.5, 6)],
-  [25.5, V(5.3, 1.8, 8.6), V(6, 1.6, 6.3)],
+  [21.3, V(5.4, 1.75, 8.2), V(6, 1.6, 6.3)],
+  [22.8, V(14, 6, 18), V(6, 4, 6)],
+  [25.4, V(13, 7, 17), V(6, 4.5, 6)],
+  [26.6, V(5.3, 1.8, 8.6), V(6, 1.6, 6.3)],
   [34, V(5.4, 1.8, 8.4), V(6, 1.6, 6.3)],
   [35.5, V(-12, 9, 34), V(1, 1, 18)],
   [42, V(-8, 7, 30), V(1, 1, 20)],
-  [44, V(-3, 22, 46), V(0, 2, 6)],
-  [50, V(-3, 28, 54), V(0, 2, 6)],
+  [44.5, V(0.5, 3.6, -5), V(3.6, 5, 6)],
+  [46.3, V(-0.5, 3.2, -7), V(3, 4.4, 6)],
+  [47.3, V(-7, 2.4, -26), V(0, 3.5, 4)],
+  [50.6, V(-6.5, 2.8, -21), V(0, 4, 6)],
+  [52, V(12, 9, -14), V(5, 5, 6)],
+  [55, V(13, 10, -16), V(5, 5.5, 6)],
+  [56.5, V(-3, 22, 46), V(0, 2, 6)],
+  [62, V(-3, 28, 54), V(0, 2, 6)],
 ];
 function camAt(t) {
   let i = 0; while (i < shots.length - 2 && t > shots[i + 1][0]) i++;
@@ -419,12 +466,13 @@ const proj = (v, el, dy = 0, dx = 0) => {
 const captions = [
   [5.5, 12.5, 'Ves a un conductor ebrio o peligroso zigzagueando por la intersección…'],
   [13, 19.5, 'Cada Semáforo SOS tiene una caja de emergencia a la altura de la mano.'],
-  [19.5, 25, 'Presiona el botón rojo SOS: el semáforo llama al 911 y su baliza azul empieza a parpadear.'],
-  [25, 34.5, 'Habla manos libres por el altavoz y el micrófono: da la placa, el color, la marca y el modelo.'],
+  [19.5, 26.3, 'Presiona el botón rojo SOS: el semáforo llama al 911 y su baliza azul empieza a parpadear.'],
+  [26.3, 34.5, 'Habla manos libres por el altavoz y el micrófono: da la placa, el color, la marca y el modelo.'],
   [34.5, 43.5, 'La central recibe tu ubicación al instante y envía oficiales a detener al conductor.'],
+  [44, 55, 'Además, mide la velocidad con radar: si un auto va demasiado rápido, alerta al 911 automáticamente.'],
 ];
 
-window.DURATION = 50;
+window.DURATION = 62;
 window.render = function (t) {
   const ph = (t % 20) / 20, st = ph < 0.6 ? 2 : ph < 0.7 ? 1 : 0;
   lamps.forEach((m, i) => m.emissiveIntensity = i === st ? 2.2 : 0.05);
@@ -437,27 +485,35 @@ window.render = function (t) {
   } else {
     drunk.position.set(-2.5, 0.2, 22); drunk.rotation.y = 0;
   }
-  police.position.set(-2.5, 0.2, -60 + ss(34.5, 40, t) * 77); police.visible = t > 34.5;
+  drunk.visible = t < 44;
+  police.position.set(-2.5, 0.2, -60 + ss(34.5, 40, t) * 77); police.visible = t > 34.5 && t < 44;
+  // speeder: slowed to 20 m/s on screen so it stays in frame; the sign still reads 98 km/h
+  const sz = -80 + (t - 46) * 20; speeder.position.set(-2, 0.2, sz); speeder.visible = t > 46 && sz < 60;
+  const radarOn = t > 44 && t < 55;
+  beamMat.opacity = radarOn ? 0.06 + 0.03 * Math.sin(t * 12) : 0;
+  radLedMat.emissiveIntensity = radarOn && Math.floor(t * 5) % 2 ? 0.2 : 1.5;
+  drawDisplay(speeder.visible && sz > -45 && sz < 6 ? '98' : t > 46 && t < 55 && sz >= 6 ? '98' : '--');
   const flash = Math.floor(t * 6) % 2;
   redM.emissiveIntensity = flash ? 3 : 0.1; blueM.emissiveIntensity = flash ? 0.1 : 3;
   pLight.color.set(flash ? 0xff0000 : 0x0044ff); pLight.intensity = police.visible ? 40 : 0;
-  traffic.forEach((c, i) => { const x = ((t * 8 + i * 30) % 120) - 60; c.position.set(x, 0.2, i % 2 ? 2 : -2); c.rotation.y = i % 2 ? -Math.PI / 2 : Math.PI / 2; c.visible = t < 4 || t > 44; });
+  traffic.forEach((c, i) => { const x = ((t * 8 + i * 30) % 120) - 60; c.position.set(x, 0.2, i % 2 ? 2 : -2); c.rotation.y = i % 2 ? -Math.PI / 2 : Math.PI / 2; c.visible = t < 4 || t > 55; });
 
   // button press, beacon, 911 signal
-  const pressed = t > 17.5;
-  btn.position.z = FZ + 0.02 - (t > 17.5 && t < 18.1 ? 0.03 : 0);
+  const pressed = t > 20.5;
+  btn.position.z = FZ + 0.02 - (t > 20.5 && t < 21.1 ? 0.03 : 0);
   btnMat.emissiveIntensity = pressed ? 1.5 + Math.sin(t * 8) : 0.2;
-  person.right.rotation.x = -1.3 * ss(16.6, 17.3, t) * (1 - ss(18.3, 19, t));
-  const active = pressed && t < 44;
+  person.right.rotation.x = -1.3 * ss(19.6, 20.3, t) * (1 - ss(21.3, 22, t));
+  const active = (pressed && t < 44) || (t > 50.3 && t < 55);
   ledMat.color.set(active ? 0xff2222 : 0x22ff66); ledMat.emissive.copy(ledMat.color);
   ledMat.emissiveIntensity = active && Math.floor(t * 4) % 2 ? 0.2 : 1.5;
   const bf = active ? (Math.sin(t * 10) > 0 ? 3 : 0.3) : 0;
   beaconMat.emissiveIntensity = bf; beaconLight.intensity = bf * 15;
   signalRings.forEach((r, i) => {
-    const k = ((t - 18) * 0.6 + i / 3) % 1; r.visible = active && t > 18;
+    const k = ((t - 21) * 0.6 + i / 3) % 1; r.visible = active && t > 21;
+    if (t > 50.3) r.material.color.set(0xff6666);
     r.position.set(P.x, 7.2 + k * 8, P.z); r.scale.setScalar(0.5 + k * 4); r.material.opacity = (1 - k) * 0.8;
   });
-  const talking = t > 26 && t < 34;
+  const talking = t > 26.6 && t < 34;
   soundRings.forEach((r, i) => {
     const k = ((t * 1.2) + i / 3) % 1; r.visible = talking;
     const src = (Math.floor(t / 4) % 2) ? mic.position : grille.position;
@@ -478,10 +534,14 @@ window.render = function (t) {
   }
   ui('info').style.opacity = fade(t, 7, 12.5);
   ui('info').querySelectorAll('div').forEach((d, i) => d.style.opacity = ss(7.5 + i * 0.6, 8 + i * 0.6, t));
-  ui('b911').style.opacity = fade(t, 26, 34.5);
+  ui('b911').style.opacity = fade(t, 26.6, 34.5);
   ui('bme').style.opacity = fade(t, 28.5, 34.5);
   ui('auto').style.opacity = fade(t, 36, 43.5);
-  ui('end').style.opacity = ss(44, 45, t);
+  const lr = fade(t, 44.8, 47.5);
+  proj(RAD, ui('lRad'), 40); ui('lRad').style.opacity = lr;
+  proj(DISP, ui('lDisp'), -90, -40); ui('lDisp').style.opacity = lr;
+  ui('radar').style.opacity = fade(t, 50.6, 55.3);
+  ui('end').style.opacity = ss(55.5, 56.5, t);
   renderer.render(scene, camera);
 };
 window.render(0);
