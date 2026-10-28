@@ -1,0 +1,647 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Semáforo SOS</title>
+<style>
+  html, body { margin: 0; width: 1280px; height: 720px; overflow: hidden; background: #0b1220; font-family: "Helvetica Neue", Arial, sans-serif; }
+  canvas { display: block; }
+  #ui > div { position: absolute; opacity: 0; color: #fff; }
+  #title { left: 0; right: 0; top: 220px; text-align: center; }
+  #title h1 { font-size: 66px; margin: 0; letter-spacing: 2px; text-shadow: 0 4px 24px #000; }
+  #title p { font-size: 26px; margin: 12px 0 0; color: #ffd75e; text-shadow: 0 2px 12px #000; }
+  #caption { left: 140px; right: 140px; bottom: 44px; text-align: center; font-size: 30px; font-weight: 600;
+             background: rgba(5,10,25,.72); border-radius: 14px; padding: 16px 24px; }
+  .label { font-size: 20px; font-weight: 700; background: #ffd75e; color: #111 !important; padding: 6px 12px; border-radius: 8px;
+           transform: translate(-50%, -100%); white-space: nowrap; box-shadow: 0 4px 14px rgba(0,0,0,.5); }
+  .bubble { max-width: 470px; font-size: 24px; padding: 16px 20px; border-radius: 18px; box-shadow: 0 6px 20px rgba(0,0,0,.5); }
+  #b911 { left: 60px; top: 70px; background: #1d4ed8; }
+  #bme { right: 60px; top: 190px; background: #16a34a; }
+  #info { right: 60px; top: 60px; width: 360px; background: rgba(5,10,25,.82); border: 2px solid #ffd75e; border-radius: 14px; padding: 18px 22px; font-size: 22px; }
+  #info h3 { margin: 0 0 10px; color: #ffd75e; font-size: 24px; }
+  #info div { margin: 8px 0; opacity: 0; }
+  #auto { left: 60px; top: 60px; background: rgba(5,10,25,.82); border: 2px solid #38bdf8; border-radius: 14px; padding: 16px 22px; font-size: 22px; line-height: 1.6; }
+  #radar { left: 60px; top: 60px; width: 470px; background: rgba(40,5,5,.85); border: 2px solid #ef4444; border-radius: 14px; padding: 16px 22px; font-size: 22px; line-height: 1.6; }
+  #radar h3 { margin: 0 0 6px; color: #fca5a5; font-size: 24px; }
+  .plabel { font-size: 16px; line-height: 1.25; text-align: center; }
+  .plabel small { display: block; font-weight: 500; font-size: 13px; }
+  .panel { left: 50px; top: 50px; width: 600px; background: rgba(5,10,25,.88); border: 2px solid #ffd75e; border-radius: 14px; padding: 18px 24px; font-size: 20px; }
+  .panel h2 { margin: 0 0 12px; color: #ffd75e; font-size: 28px; }
+  .panel table { width: 100%; border-collapse: collapse; }
+  .panel td { padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,.12); }
+  .panel td:last-child { text-align: right; font-weight: 700; white-space: nowrap; padding-left: 16px; }
+  .panel tr.total td { color: #ffd75e; font-size: 24px; border-bottom: 0; padding-top: 10px; }
+  .panel p { margin: 10px 0 0; font-size: 15px; color: #cbd5e1; }
+  .panel ol { margin: 0; padding-left: 30px; line-height: 1.45; }
+  .panel li { opacity: 0; margin: 6px 0; }
+  #end { left: 0; right: 0; top: 0; bottom: 0; background: rgba(5,10,25,.78); text-align: center; padding-top: 180px; }
+  #end h1 { font-size: 60px; margin: 0; color: #ffd75e; }
+  #end p { font-size: 28px; margin: 18px 0; }
+</style>
+</head>
+<body>
+<div id="ui">
+  <div id="title"><h1>Semáforo SOS</h1><p>El semáforo que te permite reportar conductores peligrosos al 911</p></div>
+  <div id="caption"></div>
+  <div class="label" id="lBtn">Botón SOS → 911</div>
+  <div class="label" id="lSpk">Altavoz</div>
+  <div class="label" id="lMic">Micrófono</div>
+  <div class="bubble" id="b911">🚓 Central 911: "911, llama desde el semáforo de Av. Principal y Calle 5. ¿Cuál es su emergencia?"</div>
+  <div class="bubble" id="bme">🗣️ "¡Un Toyota Camry rojo, placa ABC-1234, va zigzagueando hacia el norte!"</div>
+  <div id="info"><h3>Datos que puedes dar</h3>
+    <div>🔢 Número de placa</div><div>🎨 Color</div><div>🚗 Marca y modelo</div><div>🧭 Dirección en que va</div><div>⚠️ Lo que viste</div></div>
+  <div id="auto">📍 Ubicación enviada automáticamente<br>🕒 Hora registrada<br>📷 Foto de la cámara del cruce<br>🔵 La baliza parpadea: la ayuda va en camino</div>
+  <div class="label" id="lRad">Radar de velocidad</div>
+  <div class="label" id="lDisp">Pantalla de velocidad</div>
+  <div id="radar"><h3>⚡ Alerta automática al 911</h3>🚗 Exceso de velocidad: 98 km/h (límite 50)<br>🔢 Placa capturada: XYZ-987<br>📍 Ubicación y dirección enviadas<br>📷 Foto y video del cruce</div>
+  <div class="panel" id="cost"><h2>💲 Costo estimado por cruce</h2><table></table>
+    <p>Agregando el kit a un semáforo existente. Precios aproximados en dólares; varían según el país y el proveedor.</p></div>
+  <div class="panel" id="impl"><h2>🛠️ Cómo se implementa</h2><ol>
+    <li>Prueba piloto en los cruces con más accidentes.</li>
+    <li>Acuerdo entre la ciudad, la policía y el centro 911.</li>
+    <li>Instalar el kit en los semáforos que ya existen.</li>
+    <li>Conectar al 911 por red celular (4G/5G) y probar las llamadas.</li>
+    <li>Campaña para que la gente sepa cómo usarlo.</li>
+    <li>Medir resultados y ampliar a toda la ciudad.</li></ol></div>
+  <div id="end"><h1>Míralo. Presiónalo. Repórtalo.</h1>
+    <p>🔴 Botón 911 de un toque &nbsp; 🔊 Altavoz bidireccional &nbsp; 🎙️ Micrófono &nbsp; 📡 Radar de velocidad</p>
+    <p>Reportes manos libres y alertas automáticas, justo en la intersección.</p></div>
+</div>
+<script src="../node_modules/three/build/three.min.js"></script>
+<script>
+const W = 1280, H = 720;
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(W, H);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a2540);
+scene.fog = new THREE.Fog(0x1a2540, 60, 140);
+const camera = new THREE.PerspectiveCamera(50, W / H, 0.05, 300);
+
+const hemi = new THREE.HemisphereLight(0x9fb8ff, 0x303030, 1.0); scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xfff1d6, 1.2);
+sun.position.set(30, 40, 20);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -40, right: 40, top: 40, bottom: -40 });
+scene.add(sun);
+
+const mat = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.6, ...o });
+const mesh = (geo, m) => { const x = new THREE.Mesh(geo, m); x.castShadow = x.receiveShadow = true; return x; };
+const box = (w, h, d, m) => mesh(new THREE.BoxGeometry(w, h, d), m);
+const cyl = (r, h, m, seg = 24, r2 = r) => mesh(new THREE.CylinderGeometry(r, r2, h, seg), m);
+const sph = (r, m, seg = 20) => mesh(new THREE.SphereGeometry(r, seg, Math.ceil(seg * 0.75)), m);
+const cap = (r, len, m) => mesh(new THREE.CapsuleGeometry(r, len, 6, 14), m);
+let tgt = scene; // default parent for at(); switched per part so each part can be pulled apart later
+const at = (o, x, y, z, parent) => { o.position.set(x, y, z); (parent || tgt).add(o); return o; };
+const parts = [];
+function part(name, desc, anchor, off) {
+  const g = new THREE.Group(); g.userData = { name, desc, anchor, off }; scene.add(g); parts.push(g); return (tgt = g);
+}
+function canvasTex(w, h, draw) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c); t.anisotropy = 8; return t;
+}
+const textTex = (text, w, h, bg, fg, font) => canvasTex(w, h, (g) => {
+  if (bg) { g.fillStyle = bg; g.fillRect(0, 0, w, h); }
+  g.fillStyle = fg; g.font = font; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, w / 2, h / 2);
+});
+const plane = (w, h, tex, transparent = false) => new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: tex, transparent, roughness: 0.5 }));
+let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+
+const metal = mat(0x3a3f47, { metalness: 0.7, roughness: 0.35 });
+const chrome = mat(0xdddddd, { metalness: 1, roughness: 0.15 });
+const black = mat(0x111111, { roughness: 0.8 });
+const glass = mat(0x1c2c3e, { metalness: 0.9, roughness: 0.08 });
+
+// ---------- ground, roads, sidewalks ----------
+const ground = mesh(new THREE.PlaneGeometry(300, 300), mat(0x2f4a2f));
+ground.rotation.x = -Math.PI / 2; scene.add(ground);
+const asphaltTex = canvasTex(256, 256, (g, w, h) => {
+  g.fillStyle = '#2a2a2e'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 2500; i++) { const v = 30 + rnd() * 30 | 0; g.fillStyle = `rgb(${v},${v},${v + 3})`; g.fillRect(rnd() * w, rnd() * h, 2, 2); }
+});
+asphaltTex.wrapS = asphaltTex.wrapT = THREE.RepeatWrapping;
+for (const [w, d] of [[8, 300], [300, 8]]) {
+  const t = asphaltTex.clone(); t.needsUpdate = true; t.repeat.set(w / 4, d / 4);
+  at(box(w, 0.05, d, mat(0xffffff, { map: t, roughness: 0.95 })), 0, 0.02, 0);
+}
+const tileTex = canvasTex(128, 128, (g, w, h) => {
+  g.fillStyle = '#8f8f8f'; g.fillRect(0, 0, w, h); g.strokeStyle = '#6f6f6f'; g.lineWidth = 3; g.strokeRect(0, 0, w, h);
+});
+tileTex.wrapS = tileTex.wrapT = THREE.RepeatWrapping; tileTex.repeat.set(30, 30);
+const walk = mat(0xffffff, { map: tileTex });
+const curb = mat(0xb5b5b5);
+for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+  at(box(60, 0.2, 60, walk), sx * 34.5, 0.1, sz * 34.5);
+  at(box(60, 0.22, 0.25, curb), sx * 34.5, 0.11, sz * 4.6);
+  at(box(0.25, 0.22, 60, curb), sx * 4.6, 0.11, sz * 34.5);
+}
+const yellow = mat(0xffd34d, { emissive: 0x332200 }), white = mat(0xeeeeee);
+for (let i = -70; i < 70; i += 4) {
+  if (Math.abs(i) < 8) continue;
+  at(box(0.2, 0.06, 2, yellow), 0, 0.05, i);
+  at(box(2, 0.06, 0.2, yellow), i, 0.05, 0);
+}
+for (let i = -3; i <= 3; i++) for (const s of [-1, 1]) { // crosswalks
+  at(box(0.6, 0.06, 2.5, white), i * 1.1, 0.05, s * 5.6);
+  at(box(2.5, 0.06, 0.6, white), s * 5.6, 0.05, i * 1.1);
+}
+for (const s of [-1, 1]) { // stop lines
+  at(box(3.6, 0.06, 0.4, white), -2 * s, 0.05, -7.4 * s);
+  at(box(0.4, 0.06, 3.6, white), 7.4 * s, 0.05, -2 * s);
+}
+
+// ---------- buildings with windows ----------
+function windowTex(base) {
+  const t = canvasTex(256, 256, (g, w, h) => {
+    g.fillStyle = base; g.fillRect(0, 0, w, h);
+    for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) {
+      g.fillStyle = rnd() < 0.35 ? '#ffd98a' : '#1b2533';
+      g.fillRect(x * 32 + 7, y * 32 + 6, 18, 20);
+      g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(x * 32 + 5, y * 32 + 26, 22, 3);
+    }
+  });
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+}
+const bcols = ['#5b6b8c', '#7a6a5a', '#4f6f6f', '#8c7b6b', '#6b5b7b'];
+function building(x, z, w, h, d, col) {
+  const t = windowTex(col); t.repeat.set(w / 8, h / 9);
+  const side = mat(0xffffff, { map: t, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: 0.25 });
+  const roof = mat(0x3d3d44);
+  const b = mesh(new THREE.BoxGeometry(w, h, d), [side, side, roof, roof, side, side]);
+  at(b, x, h / 2 + 0.2, z);
+  for (const [dx, dz, pw, pd] of [[0, d / 2, w, 0.3], [0, -d / 2, w, 0.3], [w / 2, 0, 0.3, d], [-w / 2, 0, 0.3, d]])
+    at(box(pw, 0.6, pd, roof), x + dx, h + 0.5, z + dz); // parapet
+  at(box(1.4, 0.9, 1.1, mat(0x9aa0a8, { metalness: 0.5 })), x - w / 4, h + 0.65, z - d / 5); // AC unit
+  const tank = at(cyl(0.7, 1.4, mat(0x7a5a3a), 16), x + w / 5, h + 1.4, z + d / 6);
+  at(new THREE.Mesh(new THREE.ConeGeometry(0.75, 0.5, 16), mat(0x5a3f2a)), tank.position.x, h + 2.35, tank.position.z);
+}
+for (const sx of [-1, 1]) for (const sz of [-1, 1]) for (let i = 0; i < 6; i++) {
+  const along = 12 + i * 9;
+  building(sx * (i % 2 ? along : 16 + rnd() * 6), sz * (i % 2 ? 16 + rnd() * 6 : along), 7, 6 + rnd() * 18, 7, bcols[i % 5]);
+}
+
+// ---------- trees, street lamps, props ----------
+const leafCols = [0x2f7d32, 0x3b8f3e, 0x276b2a];
+function tree(x, z) {
+  at(cyl(0.12, 2.2, mat(0x5b3a1e), 10, 0.18), x, 1.3, z);
+  for (let i = 0; i < 4; i++) {
+    const c = mesh(new THREE.IcosahedronGeometry(0.9 + rnd() * 0.4, 1), mat(leafCols[i % 3], { flatShading: true }));
+    at(c, x + (rnd() - 0.5) * 0.9, 2.8 + rnd() * 0.8, z + (rnd() - 0.5) * 0.9);
+  }
+}
+for (const z of [-44, -34, -24, -14]) { if (z < -30) tree(-7, z); tree(7, z); } // west side kept clear for the radar shot
+for (const x of [-44, -34, -24, -14]) { tree(x, 7); tree(x, -7); }
+tree(-7, 14);
+function streetLamp(x, z, dir) {
+  at(cyl(0.08, 5.5, metal, 12, 0.12), x, 2.95, z);
+  const arm = at(cyl(0.04, 1.6, metal, 8), x + dir * 0.8, 5.6, z); arm.rotation.z = Math.PI / 2;
+  at(box(0.6, 0.12, 0.3, metal), x + dir * 1.55, 5.55, z);
+  at(box(0.5, 0.03, 0.24, mat(0xfff3c4, { emissive: 0xfff0b0, emissiveIntensity: 1.5 })), x + dir * 1.55, 5.48, z);
+}
+streetLamp(-6, -6, 1); streetLamp(6, -6, -1); streetLamp(-6, 6, 1);
+function hydrant(x, z) {
+  const r = mat(0xc81e1e, { roughness: 0.4 });
+  at(cyl(0.13, 0.55, r, 16), x, 0.48, z);
+  at(sph(0.14, r), x, 0.76, z);
+  at(cyl(0.05, 0.1, chrome, 8), x, 0.92, z);
+  for (const s of [-1, 1]) { const n = at(cyl(0.06, 0.12, r, 10), x + s * 0.17, 0.55, z); n.rotation.z = Math.PI / 2; }
+}
+hydrant(7.8, 5.4);
+const bin = at(cyl(0.25, 0.8, mat(0x2d5a3a, { metalness: 0.4 }), 16, 0.22), 5.2, 0.6, 7.8);
+at(cyl(0.27, 0.05, metal, 16), bin.position.x, 1.02, bin.position.z);
+
+// ---------- Semáforo SOS at corner (6, 0, 6) ----------
+const P = new THREE.Vector3(6, 0.2, 6);
+const poleG = part('Poste y brazo', 'Estructura de acero', new THREE.Vector3(6, 3.2, 6), new THREE.Vector3(0, 0, 0));
+at(cyl(0.38, 0.25, metal, 24, 0.42), P.x, P.y + 0.12, P.z);
+for (let i = 0; i < 4; i++) at(cyl(0.035, 0.08, chrome, 8), P.x + Math.cos(i * Math.PI / 2 + 0.78) * 0.32, P.y + 0.27, P.z + Math.sin(i * Math.PI / 2 + 0.78) * 0.32);
+at(cyl(0.13, 6.5, metal, 24, 0.19), P.x, P.y + 3.5, P.z);
+const mast = at(cyl(0.07, 6, metal, 16, 0.12), P.x - 3, 6.3, P.z); mast.rotation.z = Math.PI / 2;
+const brace = at(cyl(0.035, 2.2, metal, 8), P.x - 0.85, 5.75, P.z); brace.rotation.z = Math.atan2(1.7, 1.2);
+at(cyl(0.16, 0.12, metal, 16), P.x, 6.32, P.z); // mast collar
+// signal head
+const SH = new THREE.Vector3(1.8, 5.15, P.z);
+part('Semáforo LED', 'Luces roja, amarilla y verde', SH, new THREE.Vector3(-1.2, 0.8, 0.6));
+at(box(0.06, 0.45, 0.06, metal), SH.x, 6.05, SH.z); // hanger
+at(box(0.85, 2.55, 0.62, mat(0x1d2b1d, { roughness: 0.5 })), SH.x, SH.y, SH.z);
+at(box(1.35, 3.05, 0.04, mat(0xffd21f)), SH.x, SH.y, SH.z + 0.33); // reflective border
+at(box(1.2, 2.9, 0.05, black), SH.x, SH.y, SH.z + 0.32); // backplate
+const lamps = [0xff2a2a, 0xffc21a, 0x22ff66].map((c, i) => {
+  const y = SH.y + 0.82 - i * 0.82, z = SH.z - 0.31;
+  const m = mat(c, { emissive: c, emissiveIntensity: 0, roughness: 0.2 });
+  const lens = at(sph(0.27, m, 24), SH.x, y, z); lens.scale.z = 0.35;
+  at(cyl(0.32, 0.04, black, 24), SH.x, y, z + 0.01).rotation.x = Math.PI / 2;
+  const visor = mesh(new THREE.CylinderGeometry(0.31, 0.31, 0.38, 24, 1, true, Math.PI / 2, Math.PI), mat(0x1d2b1d, { side: THREE.DoubleSide }));
+  at(visor, SH.x, y, z - 0.19).rotation.x = Math.PI / 2;
+  return m;
+});
+// street name signs
+tgt = poleG;
+const signTex = (txt) => textTex(txt, 512, 128, '#1b6b36', '#fff', 'bold 64px Arial');
+const nameSign = at(box(1.9, 0.38, 0.03, [metal, metal, metal, metal, mat(0xffffff, { map: signTex('Av. Principal') }), mat(0xffffff, { map: signTex('Av. Principal') })]), P.x - 2.4, 6.65, P.z);
+nameSign.rotation.y = Math.PI;
+// pedestrian signal
+at(box(0.4, 0.5, 0.3, mat(0x1d2b1d)), P.x + 0.32, 3.1, P.z);
+const ped = at(plane(0.3, 0.3, textTex('✋', 128, 128, '#111', '#ff8a00', '96px sans-serif')), P.x + 0.32, 3.1, P.z + 0.155);
+ped.material.emissive = new THREE.Color(0xffffff); ped.material.emissiveMap = ped.material.map; ped.material.emissiveIntensity = 0.8;
+// intersection camera dome
+part('Cámara lectora de placas', 'Foto y video del cruce', new THREE.Vector3(P.x - 0.9, 6.05, P.z), new THREE.Vector3(-0.6, 1.6, 0.6));
+at(box(0.06, 0.25, 0.06, metal), P.x - 0.9, 6.15, P.z);
+at(mesh(new THREE.SphereGeometry(0.17, 20, 12, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), glass), P.x - 0.9, 6.02, P.z);
+at(cyl(0.18, 0.06, mat(0xeeeeee)), P.x - 0.9, 6.04, P.z);
+// beacon on top
+part('Baliza azul', 'Avisa que hay una alerta', new THREE.Vector3(P.x, 6.95, P.z), new THREE.Vector3(0.9, 1.6, 0));
+at(cyl(0.2, 0.15, metal, 20), P.x, 6.85, P.z);
+const beaconMat = mat(0x2266ff, { emissive: 0x2266ff, emissiveIntensity: 0, transparent: true, opacity: 0.85, roughness: 0.1 });
+const beacon = at(mesh(new THREE.SphereGeometry(0.22, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2), beaconMat), P.x, 6.92, P.z);
+beacon.scale.y = 1.5;
+at(cyl(0.23, 0.05, chrome, 20), P.x, 6.94, P.z);
+const beaconLight = at(new THREE.PointLight(0x3377ff, 0, 25), P.x, 7.1, P.z);
+const ringMat = new THREE.MeshBasicMaterial({ color: 0x66aaff, transparent: true, side: THREE.DoubleSide });
+const signalRings = [0, 1, 2].map(() => { const m = new THREE.Mesh(new THREE.TorusGeometry(1, 0.05, 8, 48), ringMat.clone()); m.rotation.x = Math.PI / 2; scene.add(m); return m; });
+const soundRings = [0, 1, 2].map(() => { const m = new THREE.Mesh(new THREE.RingGeometry(0.9, 1, 40), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, side: THREE.DoubleSide })); scene.add(m); return m; });
+
+// speed radar on the mast arm, aimed at oncoming (northbound) traffic
+const RAD = new THREE.Vector3(3.3, 6.05, P.z);
+part('Radar de velocidad', 'Mide la velocidad de los autos', RAD, new THREE.Vector3(-0.6, 0.9, 1.4));
+at(box(0.08, 0.25, 0.08, metal), RAD.x, 6.2, RAD.z);
+at(box(0.5, 0.35, 0.35, mat(0xe5e7eb, { metalness: 0.3, roughness: 0.4 })), RAD.x, RAD.y, RAD.z);
+at(cyl(0.14, 0.04, black, 24), RAD.x, RAD.y, RAD.z - 0.19).rotation.x = Math.PI / 2;
+at(cyl(0.11, 0.045, mat(0x334155, { metalness: 0.6, roughness: 0.2 }), 24), RAD.x, RAD.y, RAD.z - 0.2).rotation.x = Math.PI / 2;
+const radLedMat = mat(0x22ff66, { emissive: 0x22ff66, emissiveIntensity: 1.5 });
+at(sph(0.025, radLedMat, 10), RAD.x + 0.18, RAD.y + 0.12, RAD.z - 0.18);
+const beamMat = new THREE.MeshBasicMaterial({ color: 0xff4444, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });
+const beam = new THREE.Mesh(new THREE.ConeGeometry(1.6, 26, 32, 1, true), beamMat);
+beam.geometry.translate(0, -13, 0); beam.geometry.rotateX(-Math.PI / 2); // tip at origin, opening along +z
+beam.position.copy(RAD); beam.position.z -= 0.2; scene.add(beam); beam.lookAt(-2, 0.5, -26);
+// "SU VELOCIDAD" display on the pole, facing oncoming traffic
+const DISP = new THREE.Vector3(P.x - 0.45, 3.9, P.z - 0.05);
+part('Pantalla de velocidad', 'Muestra tu velocidad', DISP, new THREE.Vector3(-1.6, 0.2, 1.0));
+at(box(0.3, 0.1, 0.1, metal), P.x - 0.25, DISP.y, P.z);
+at(box(0.85, 1.05, 0.12, mat(0x1f2937, { metalness: 0.4 })), DISP.x, DISP.y, DISP.z);
+const dispCanvas = document.createElement('canvas'); dispCanvas.width = 256; dispCanvas.height = 320;
+const dispTex = new THREE.CanvasTexture(dispCanvas);
+const disp = at(new THREE.Mesh(new THREE.PlaneGeometry(0.75, 0.94), new THREE.MeshBasicMaterial({ map: dispTex })), DISP.x, DISP.y, DISP.z - 0.065);
+disp.rotation.y = Math.PI;
+let dispVal = null;
+function drawDisplay(v) {
+  if (v === dispVal) return; dispVal = v;
+  const g = dispCanvas.getContext('2d'), fast = v !== '--' && +v > 50;
+  g.fillStyle = '#fff'; g.fillRect(0, 0, 256, 320);
+  g.fillStyle = '#111'; g.textAlign = 'center'; g.font = 'bold 30px Arial';
+  g.fillText('LÍMITE', 128, 34); g.font = 'bold 54px Arial'; g.fillText('50 km/h', 128, 88);
+  g.fillStyle = '#000'; g.fillRect(14, 112, 228, 194);
+  g.fillStyle = fast ? '#ff2a2a' : '#ffcc00'; g.font = 'bold 26px Arial'; g.fillText(fast ? '¡MUY RÁPIDO!' : 'SU VELOCIDAD', 128, 146);
+  g.font = 'bold 110px Arial'; g.fillText(v, 128, 270);
+  dispTex.needsUpdate = true;
+}
+drawDisplay('--');
+
+// ---------- emergency call box (faces +z) ----------
+const CB = new THREE.Vector3(P.x, 1.5, P.z + 0.3), FZ = CB.z + 0.135; // FZ = front face
+part('Caja SOS', 'Botón, altavoz y micrófono', CB, new THREE.Vector3(0.3, 0.6, 2.0));
+const rr = new THREE.Shape(), bw = 0.33, bh = 0.5, br = 0.06;
+rr.moveTo(-bw + br, -bh); rr.lineTo(bw - br, -bh); rr.quadraticCurveTo(bw, -bh, bw, -bh + br); rr.lineTo(bw, bh - br);
+rr.quadraticCurveTo(bw, bh, bw - br, bh); rr.lineTo(-bw + br, bh); rr.quadraticCurveTo(-bw, bh, -bw, bh - br);
+rr.lineTo(-bw, -bh + br); rr.quadraticCurveTo(-bw, -bh, -bw + br, -bh);
+const cbGeo = new THREE.ExtrudeGeometry(rr, { depth: 0.2, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.02, bevelSegments: 3 });
+cbGeo.translate(0, 0, -0.1);
+at(mesh(cbGeo, mat(0xffc400, { metalness: 0.3, roughness: 0.35 })), CB.x, CB.y, CB.z);
+const hood = at(box(0.78, 0.04, 0.34, mat(0xe0a800, { metalness: 0.3 })), CB.x, CB.y + 0.54, CB.z + 0.03); hood.rotation.x = 0.12;
+for (const y of [1.2, 1.8]) {
+  at(mesh(new THREE.TorusGeometry(0.2, 0.025, 8, 32), metal), P.x, y, P.z).rotation.x = Math.PI / 2;
+  at(box(0.18, 0.08, 0.2, metal), P.x, y, P.z + 0.2);
+}
+at(box(0.56, 0.84, 0.01, mat(0x2b2f36, { metalness: 0.4 })), CB.x, CB.y - 0.03, FZ); // front panel
+const sign = at(plane(0.56, 0.13, textTex('EMERGENCIA 911', 512, 120, '#c1121f', '#fff', 'bold 60px Arial')), CB.x, CB.y + 0.41, FZ + 0.007);
+sign.material.emissive = new THREE.Color(0xffffff); sign.material.emissiveMap = sign.material.map; sign.material.emissiveIntensity = 0.3;
+const grilleTex = canvasTex(256, 256, (g) => {
+  g.fillStyle = '#9aa0a8'; g.beginPath(); g.arc(128, 128, 126, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#111';
+  for (let y = -6; y <= 6; y++) for (let x = -6; x <= 6; x++) if (x * x + y * y <= 34) { g.beginPath(); g.arc(128 + x * 18, 128 + y * 18, 6, 0, Math.PI * 2); g.fill(); }
+});
+const grille = at(new THREE.Mesh(new THREE.CircleGeometry(0.1, 32), mat(0xffffff, { map: grilleTex, metalness: 0.6, roughness: 0.4 })), CB.x - 0.12, CB.y + 0.2, FZ + 0.012);
+at(mesh(new THREE.TorusGeometry(0.1, 0.012, 8, 32), chrome), grille.position.x, grille.position.y, FZ + 0.012);
+const micBody = at(cyl(0.028, 0.05, black, 16), CB.x + 0.16, CB.y + 0.2, FZ + 0.03); micBody.rotation.x = Math.PI / 2;
+const mic = at(sph(0.032, mat(0x555a60, { metalness: 0.8, roughness: 0.5 }), 16), CB.x + 0.16, CB.y + 0.2, FZ + 0.06);
+at(mesh(new THREE.TorusGeometry(0.045, 0.008, 8, 24), chrome), CB.x + 0.16, CB.y + 0.2, FZ + 0.012);
+const ledMat = mat(0x22ff66, { emissive: 0x22ff66, emissiveIntensity: 1.5 });
+at(sph(0.015, ledMat, 12), CB.x + 0.2, CB.y + 0.06, FZ + 0.012);
+at(cyl(0.03, 0.03, black, 16), CB.x - 0.2, CB.y + 0.06, FZ + 0.015).rotation.x = Math.PI / 2; // camera
+at(sph(0.02, glass, 12), CB.x - 0.2, CB.y + 0.06, FZ + 0.03);
+const guardTex = canvasTex(256, 32, (g, w, h) => { for (let i = 0; i < 16; i++) { g.fillStyle = i % 2 ? '#111' : '#ffcc00'; g.fillRect(i * 16, 0, 16, h); } });
+at(new THREE.Mesh(new THREE.RingGeometry(0.135, 0.165, 40), mat(0xffffff, { map: guardTex })), CB.x, CB.y - 0.13, FZ + 0.008);
+at(mesh(new THREE.TorusGeometry(0.13, 0.015, 10, 40), chrome), CB.x, CB.y - 0.13, FZ + 0.015);
+const btnMat = mat(0xff1f1f, { emissive: 0xff0000, emissiveIntensity: 0.2, roughness: 0.25 });
+const btn = at(new THREE.Group(), CB.x, CB.y - 0.13, FZ + 0.02);
+at(cyl(0.05, 0.05, chrome, 16), 0, 0, 0, btn).rotation.x = Math.PI / 2;
+const capM = at(mesh(new THREE.SphereGeometry(0.11, 28, 14, 0, Math.PI * 2, 0, Math.PI / 2), btnMat), 0, 0, 0.03, btn);
+capM.rotation.x = Math.PI / 2; capM.scale.y = 0.45;
+at(plane(0.5, 0.07, textTex('PULSE PARA LLAMAR AL 911', 512, 72, null, '#fff', 'bold 34px Arial'), true), CB.x, CB.y - 0.37, FZ + 0.008);
+
+// ---------- control cabinet at the pole base (faces +z) ----------
+const CC = new THREE.Vector3(P.x + 0.75, P.y, P.z - 0.35);
+part('Gabinete de control', 'Computadora, 4G/5G y batería', new THREE.Vector3(CC.x, 0.8, CC.z), new THREE.Vector3(1.8, 0.3, 1.0));
+at(box(0.72, 0.1, 0.5, mat(0x9a9a9a, { roughness: 0.9 })), CC.x, CC.y + 0.05, CC.z); // concrete plinth
+at(box(0.6, 1.1, 0.4, mat(0x8f99a3, { metalness: 0.5, roughness: 0.4 })), CC.x, CC.y + 0.65, CC.z);
+at(box(0.66, 0.04, 0.46, mat(0x7a838c, { metalness: 0.5 })), CC.x, CC.y + 1.22, CC.z); // lid
+at(box(0.01, 0.95, 0.01, black), CC.x, CC.y + 0.65, CC.z + 0.201); // door seam
+at(box(0.04, 0.12, 0.03, chrome), CC.x + 0.06, CC.y + 0.7, CC.z + 0.21); // handle
+for (let i = 0; i < 5; i++) at(box(0.18, 0.012, 0.01, black), CC.x - 0.16, CC.y + 0.95 - i * 0.04, CC.z + 0.201); // vents
+at(plane(0.22, 0.1, textTex('CONTROL 911', 256, 110, '#ffd21f', '#111', 'bold 40px Arial')), CC.x - 0.16, CC.y + 0.5, CC.z + 0.202);
+at(cyl(0.015, 0.4, black, 8), CC.x + 0.22, CC.y + 1.42, CC.z - 0.1); // 4G/5G antenna
+at(sph(0.025, black, 8), CC.x + 0.22, CC.y + 1.62, CC.z - 0.1);
+const conduit = at(cyl(0.04, 0.6, metal, 10), CC.x - 0.45, CC.y + 0.35, CC.z + 0.12); conduit.rotation.z = Math.PI / 2.6;
+tgt = scene;
+
+// ---------- witness ----------
+function makePerson() {
+  const g = new THREE.Group(); // faces +z
+  const skin = mat(0xc68e6a), jacket = mat(0x2563eb, { roughness: 0.7 }), jeans = mat(0x1f2a44, { roughness: 0.8 }), shoe = mat(0x161616);
+  at(box(0.34, 0.16, 0.2, jeans), 0, 0.95, 0, g);
+  for (const s of [-1, 1]) {
+    at(cap(0.08, 0.3, jeans), s * 0.09, 0.72, 0, g);
+    at(cap(0.065, 0.32, jeans), s * 0.09, 0.29, 0, g);
+    at(box(0.12, 0.08, 0.27, shoe), s * 0.09, 0.04, 0.05, g);
+  }
+  const torso = at(cap(0.17, 0.35, jacket), 0, 1.22, 0, g); torso.scale.set(1.1, 1, 0.7);
+  at(box(0.02, 0.5, 0.02, mat(0x999999, { metalness: 0.8 })), 0, 1.2, 0.125, g); // zipper
+  at(cyl(0.05, 0.1, skin, 12), 0, 1.58, 0, g);
+  const head = at(sph(0.12, skin, 24), 0, 1.72, 0, g); head.scale.y = 1.12;
+  const hair = at(mesh(new THREE.SphereGeometry(0.127, 24, 12, 0, Math.PI * 2, 0, Math.PI * 0.55), mat(0x2a1a10)), 0, 1.74, -0.01, g);
+  hair.scale.y = 1.1;
+  for (const s of [-1, 1]) { at(sph(0.015, black, 8), s * 0.045, 1.74, 0.11, g); at(sph(0.025, skin, 8), s * 0.12, 1.72, 0, g); }
+  at(box(0.03, 0.05, 0.04, skin), 0, 1.7, 0.125, g);
+  const arms = [-1, 1].map(s => {
+    const sh = at(new THREE.Group(), s * 0.22, 1.46, 0, g);
+    at(sph(0.07, jacket), 0, 0, 0, sh);
+    at(cap(0.055, 0.24, jacket), 0, -0.17, 0, sh);
+    const el = at(new THREE.Group(), 0, -0.32, 0, sh); el.rotation.x = -0.15;
+    at(cap(0.05, 0.22, jacket), 0, -0.15, 0, el);
+    at(sph(0.05, skin), 0, -0.31, 0, el);
+    return sh;
+  });
+  scene.add(g); return { g, right: arms[0] };
+}
+const person = makePerson();
+person.g.position.set(P.x + 0.8, 0.2, P.z + 1.1); person.g.rotation.y = Math.PI + 0.55;
+
+// ---------- cars (built front = +x, then turned so front = +z) ----------
+function wheel() {
+  const w = new THREE.Group();
+  at(cyl(0.38, 0.26, black, 32), 0, 0, 0, w).rotation.x = Math.PI / 2;
+  at(cyl(0.25, 0.27, chrome, 32), 0, 0, 0, w).rotation.x = Math.PI / 2;
+  at(cyl(0.2, 0.275, mat(0x444444, { metalness: 0.8 }), 24), 0, 0, 0, w).rotation.x = Math.PI / 2;
+  for (let i = 0; i < 5; i++) { const s = at(box(0.045, 0.2, 0.28, chrome), 0, 0, 0, w); s.rotation.z = i * Math.PI * 2 / 5; s.geometry.translate(0, 0.1, 0); }
+  at(cyl(0.06, 0.29, chrome, 12), 0, 0, 0, w).rotation.x = Math.PI / 2;
+  return w;
+}
+function strip(a, b, off, w, m, parent) {
+  const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy);
+  let nx = -dy / L, ny = dx / L; if (ny < 0) { nx = -nx; ny = -ny; }
+  const s = at(box(L, 0.03, w, m), (a[0] + b[0]) / 2 + nx * off, (a[1] + b[1]) / 2 + ny * off, 0, parent);
+  s.rotation.z = Math.atan2(dy, dx); return s;
+}
+function makeCar(color, plate, police) {
+  const g = new THREE.Group(), c = new THREE.Group(); c.rotation.y = -Math.PI / 2; g.add(c);
+  const paint = mat(color, { metalness: 0.55, roughness: 0.28 });
+  const pr = new THREE.Shape();
+  pr.moveTo(-2.2, 0.32); pr.lineTo(2.15, 0.32); pr.quadraticCurveTo(2.3, 0.35, 2.28, 0.6);
+  pr.quadraticCurveTo(2.25, 0.82, 1.9, 0.86); pr.lineTo(0.95, 0.98); pr.quadraticCurveTo(0.55, 1.25, 0.2, 1.42);
+  pr.quadraticCurveTo(-0.35, 1.5, -0.85, 1.42); pr.quadraticCurveTo(-1.3, 1.2, -1.6, 1.0); pr.lineTo(-2.1, 0.95);
+  pr.quadraticCurveTo(-2.3, 0.9, -2.28, 0.6); pr.quadraticCurveTo(-2.3, 0.35, -2.2, 0.32);
+  const bg = new THREE.ExtrudeGeometry(pr, { depth: 1.66, bevelEnabled: true, bevelThickness: 0.08, bevelSize: 0.06, bevelSegments: 4, curveSegments: 12 });
+  bg.translate(0, 0, -0.83); at(mesh(bg, paint), 0, 0, 0, c);
+  const gs = new THREE.Shape();
+  gs.moveTo(0.85, 1.0); gs.quadraticCurveTo(0.52, 1.22, 0.22, 1.37); gs.quadraticCurveTo(-0.35, 1.44, -0.8, 1.37);
+  gs.quadraticCurveTo(-1.2, 1.18, -1.48, 1.0); gs.closePath();
+  const gg = new THREE.ExtrudeGeometry(gs, { depth: 1.84, bevelEnabled: false, curveSegments: 10 }); gg.translate(0, 0, -0.92);
+  at(mesh(gg, glass), 0, 0, 0, c);
+  at(box(0.08, 0.38, 1.85, paint), -0.33, 1.2, 0, c); // B-pillar
+  strip([0.93, 1.0], [0.25, 1.42], 0.09, 1.5, glass, c); // windshield
+  strip([-0.9, 1.4], [-1.55, 1.02], 0.08, 1.5, glass, c); // rear window
+  for (const x of [0.95, -0.35, -1.45]) at(box(0.015, 0.5, 1.87, black), x, 0.68, 0, c); // door seams
+  at(box(3.2, 0.03, 1.87, chrome), -0.25, 0.5, 0, c); // trim
+  for (const x of [0.15, -0.8]) for (const s of [-1, 1]) at(box(0.16, 0.03, 0.03, chrome), x, 0.9, s * 0.925, c);
+  for (const s of [-1, 1]) { // mirrors
+    at(box(0.06, 0.04, 0.12, paint), 0.78, 1.03, s * 0.95, c);
+    at(box(0.14, 0.12, 0.16, paint), 0.8, 1.06, s * 1.04, c);
+  }
+  const head = mat(0xffffee, { emissive: 0xffffcc, emissiveIntensity: 1.2 }), tail = mat(0xff2222, { emissive: 0xff0000, emissiveIntensity: 0.9 });
+  for (const s of [-1, 1]) {
+    at(box(0.06, 0.13, 0.36, head), 2.3, 0.7, s * 0.6, c);
+    at(box(0.05, 0.17, 0.42, chrome), 2.29, 0.7, s * 0.6, c);
+    at(box(0.06, 0.15, 0.42, tail), -2.32, 0.75, s * 0.58, c);
+  }
+  at(box(0.05, 0.16, 0.62, black), 2.33, 0.68, 0, c); // grille
+  for (const y of [0.63, 0.68, 0.73]) at(box(0.06, 0.012, 0.6, chrome), 2.34, y, 0, c);
+  at(box(0.06, 0.1, 1.3, black), 2.3, 0.4, 0, c); // lower intake
+  at(box(0.06, 0.1, 1.6, black), -2.3, 0.42, 0, c); // rear bumper
+  for (const s of [-1, 1]) for (const x of [1.42, -1.42]) {
+    at(wheel(), x, 0.38, s * 0.82, c);
+    at(new THREE.Mesh(new THREE.RingGeometry(0.4, 0.47, 24, 1, 0, Math.PI), black), x, 0.38, s * 0.925, c).rotation.y = s < 0 ? Math.PI : 0;
+  }
+  if (plate) {
+    const pt = textTex(plate, 256, 90, '#f4f4f4', '#0b2a8a', 'bold 56px Arial');
+    at(plane(0.6, 0.2, pt), -2.37, 0.56, 0, c).rotation.y = -Math.PI / 2;
+    at(plane(0.6, 0.2, pt), 2.37, 0.5, 0, c).rotation.y = Math.PI / 2;
+  }
+  if (police) {
+    at(box(1.9, 0.42, 1.865, black), -0.3, 0.62, 0, c);
+    for (const s of [-1, 1]) {
+      const t = at(plane(1.2, 0.22, textTex('POLICÍA', 512, 96, null, '#fff', 'bold 72px Arial'), true), -0.3, 0.66, s * 0.94, c);
+      t.rotation.y = s < 0 ? Math.PI : 0;
+    }
+    at(box(0.1, 0.25, 1.3, black), 2.4, 0.45, 0, c); // push bar
+  }
+  scene.add(g); return { g, c };
+}
+const drunk = makeCar(0xc81e1e, 'ABC-1234').g;
+const pol = makeCar(0xf2f2f2, 'P-0911', true), police = pol.g;
+const redM = mat(0xff0000, { emissive: 0xff0000 }), blueM = mat(0x0044ff, { emissive: 0x0044ff });
+at(box(0.35, 0.06, 1.3, black), -0.35, 1.52, 0, pol.c);
+at(box(0.3, 0.14, 0.55, redM), -0.35, 1.62, 0.33, pol.c);
+at(box(0.3, 0.14, 0.55, blueM), -0.35, 1.62, -0.33, pol.c);
+const pLight = new THREE.PointLight(0xff0000, 0, 15); pLight.position.set(0, 2, 0); police.add(pLight);
+const traffic = [0x3b82f6, 0x9ca3af, 0x10b981].map(c => makeCar(c).g);
+const speeder = makeCar(0x1e40af, 'XYZ-987').g;
+
+// ---------- timeline ----------
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+const ss = (a, b, t) => { const x = clamp((t - a) / (b - a), 0, 1); return x * x * (3 - 2 * x); };
+const fade = (t, a, b, f = 0.5) => ss(a, a + f, t) * (1 - ss(b - f, b, t));
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+// parts / cost / implementation scene; times match the narration in mux.sh
+const X = { start: 55, explode: 57.5, labels: 60, cost: 76, impl: 89.5, rebuild: 104, end: 107.5, dur: 114 };
+const shots = [ // [time, camera pos, look target]
+  [0, V(3, 26, 48), V(0, 2, 0)],
+  [4, V(3, 14, 34), V(0, 2, 0)],
+  [6, V(9, 3, 16), V(-1, 1, -10)],
+  [11.5, V(9, 3, 16), V(-2, 1, 4)],
+  [13.5, V(5.2, 1.9, 9.2), V(6, 1.55, 6.3)],
+  [19, V(5.4, 1.75, 8.2), V(6, 1.6, 6.3)],
+  [21.3, V(5.4, 1.75, 8.2), V(6, 1.6, 6.3)],
+  [22.8, V(14, 6, 18), V(6, 4, 6)],
+  [25.4, V(13, 7, 17), V(6, 4.5, 6)],
+  [26.6, V(5.3, 1.8, 8.6), V(6, 1.6, 6.3)],
+  [34, V(5.4, 1.8, 8.4), V(6, 1.6, 6.3)],
+  [35.5, V(-12, 9, 34), V(1, 1, 18)],
+  [42, V(-8, 7, 30), V(1, 1, 20)],
+  [44.5, V(0.5, 3.6, -5), V(3.6, 5, 6)],
+  [46.3, V(-0.5, 3.2, -7), V(3, 4.4, 6)],
+  [47.3, V(-7, 2.4, -26), V(0, 3.5, 4)],
+  [50.6, V(-6.5, 2.8, -21), V(0, 4, 6)],
+  [52, V(12, 9, -14), V(5, 5, 6)],
+  [55, V(13, 10, -16), V(5, 5.5, 6)],
+  // orbit: lights, radar and speed sign face -z (traffic); call box and cabinet face +z (sidewalk)
+  [X.start + 1.8, V(14.3, 6.3, -12.2), V(4.3, 5, 6)],
+  [X.labels + 3, V(13.7, 6.3, -14.2), V(4.3, 5, 6)],
+  [X.labels + 8.5, V(21.4, 6.4, 4.6), V(4.3, 5, 6.5)],
+  [X.cost - 1, V(13, 6.8, 22.3), V(4.3, 5, 6.5)],
+  [X.cost, V(15, 7, 23), V(0.6, 4.8, 8.8)], // model on the right, panel on the left
+  [X.rebuild, V(16.5, 7, 22), V(0.8, 4.8, 8.6)],
+  [X.rebuild + 2.5, V(14.3, 6.5, 22), V(4.3, 5, 6.5)],
+  [X.end + 1, V(-3, 22, 46), V(0, 2, 6)],
+  [X.dur, V(-3, 28, 54), V(0, 2, 6)],
+];
+function camAt(t) {
+  let i = 0; while (i < shots.length - 2 && t > shots[i + 1][0]) i++;
+  const [t0, p0, l0] = shots[i], [t1, p1, l1] = shots[i + 1], k = ss(t0, t1, t);
+  return [p0.clone().lerp(p1, k), l0.clone().lerp(l1, k)];
+}
+const drunkX = z => -2 + Math.sin(z * 0.35) * 1.6;
+const ui = id => document.getElementById(id);
+const proj = (v, el, dy = 0, dx = 0) => {
+  const p = v.clone().project(camera);
+  el.style.left = ((p.x + 1) / 2 * W + dx) + 'px'; el.style.top = ((1 - p.y) / 2 * H - dy) + 'px';
+};
+const captions = [
+  [5.5, 12.5, 'Ves a un conductor ebrio o peligroso zigzagueando por la intersección…'],
+  [13, 19.5, 'Cada Semáforo SOS tiene una caja de emergencia a la altura de la mano.'],
+  [19.5, 26.3, 'Presiona el botón rojo SOS: el semáforo llama al 911 y su baliza azul empieza a parpadear.'],
+  [26.3, 34.5, 'Habla manos libres por el altavoz y el micrófono: da la placa, el color, la marca y el modelo.'],
+  [34.5, 43.5, 'La central recibe tu ubicación al instante y envía oficiales a detener al conductor.'],
+  [44, 55, 'Además, mide la velocidad con radar: si un auto va demasiado rápido, alerta al 911 automáticamente.'],
+  [X.start, X.cost, '¿Cómo funciona por dentro? Veamos cada parte.'],
+  [X.cost, X.impl, 'Costo aproximado de agregar el kit a un semáforo que ya existe.'],
+  [X.impl, X.end, 'Implementación paso a paso.'],
+];
+
+window.DURATION = X.dur;
+const costRows = [
+  ['Caja SOS (botón, altavoz, micrófono)', 2500], ['Radar de velocidad', 2500], ['Pantalla de velocidad LED', 2500],
+  ['Cámara lectora de placas', 3500], ['Baliza azul LED', 200], ['Gabinete de control (computadora, 4G/5G, batería)', 3000],
+  ['Instalación, cableado y permisos', 3000],
+];
+const usd = n => 'US$ ' + n.toLocaleString('en-US');
+const costTotal = costRows.reduce((a, r) => a + r[1], 0);
+console.assert(costTotal === 17200, 'narration says ~17,000 per intersection');
+ui('cost').querySelector('table').innerHTML = costRows.map(([n, v]) => `<tr><td>${n}</td><td>${usd(v)}</td></tr>`).join('') +
+  `<tr class="total"><td>Total por cruce</td><td>≈ ${usd(costTotal)}</td></tr><tr><td>Operación (datos y mantenimiento)</td><td>≈ US$ 80/mes</td></tr>`;
+// "studio" look for the parts scene: hide the city, show a plain floor with a grid
+const studioHide = scene.children.filter(o => !parts.includes(o) && !o.isLight &&
+  ![drunk, police, speeder, person.g, beam, ...traffic, ...signalRings, ...soundRings].includes(o));
+const studioFloor = mesh(new THREE.CircleGeometry(16, 64), mat(0x2a3344, { roughness: 0.9 }));
+studioFloor.rotation.x = -Math.PI / 2; at(studioFloor, 4.3, 0.19, 6.5);
+const studioGrid = at(new THREE.GridHelper(32, 32, 0x3b82f6, 0x1e293b), 4.3, 0.2, 6.5);
+const cityBg = scene.background.clone(), studioBg = new THREE.Color(0x1b2436);
+const plabels = parts.map(g => {
+  const d = document.createElement('div'); d.className = 'label plabel';
+  d.innerHTML = `${g.userData.name}<small>${g.userData.desc}</small>`; ui('ui').appendChild(d); return d;
+});
+window.render = function (t) {
+  const ph = (t % 20) / 20, st = ph < 0.6 ? 2 : ph < 0.7 ? 1 : 0;
+  lamps.forEach((m, i) => m.emissiveIntensity = i === st ? 2.2 : 0.05);
+
+  // drunk driver weaves north (-z → +z), later pulled over
+  if (t < 34) {
+    const z = -60 + clamp((t - 5) / 8, 0, 1.3) * 80, dz = 0.01;
+    drunk.position.set(drunkX(z), 0.2, z);
+    drunk.rotation.y = Math.atan2(drunkX(z + dz) - drunkX(z), dz) * 0.6;
+  } else {
+    drunk.position.set(-2.5, 0.2, 22); drunk.rotation.y = 0;
+  }
+  drunk.visible = t < 44;
+  police.position.set(-2.5, 0.2, -60 + ss(34.5, 40, t) * 77); police.visible = t > 34.5 && t < 44;
+  // speeder: slowed to 20 m/s on screen so it stays in frame; the sign still reads 98 km/h
+  const sz = -80 + (t - 46) * 20; speeder.position.set(-2, 0.2, sz); speeder.visible = t > 46 && sz < 60;
+  const radarOn = t > 44 && t < 55;
+  beamMat.opacity = radarOn ? 0.06 + 0.03 * Math.sin(t * 12) : 0;
+  radLedMat.emissiveIntensity = radarOn && Math.floor(t * 5) % 2 ? 0.2 : 1.5;
+  drawDisplay(speeder.visible && sz > -45 && sz < 6 ? '98' : t > 46 && t < 55 && sz >= 6 ? '98' : '--');
+  const flash = Math.floor(t * 6) % 2;
+  redM.emissiveIntensity = flash ? 3 : 0.1; blueM.emissiveIntensity = flash ? 0.1 : 3;
+  pLight.color.set(flash ? 0xff0000 : 0x0044ff); pLight.intensity = police.visible ? 40 : 0;
+  traffic.forEach((c, i) => { const x = ((t * 8 + i * 30) % 120) - 60; c.position.set(x, 0.2, i % 2 ? 2 : -2); c.rotation.y = i % 2 ? -Math.PI / 2 : Math.PI / 2; c.visible = t < 4 || t > X.end; });
+  const ex = ss(X.explode, X.explode + 2.5, t) * (1 - ss(X.rebuild, X.rebuild + 2.5, t));
+  parts.forEach(g => g.position.copy(g.userData.off).multiplyScalar(ex * 1.3));
+  person.g.visible = t < X.start || t > X.end;
+  const studio = t > X.start + 1.8 && t < X.rebuild + 3;
+  studioHide.forEach(o => o.visible = !studio);
+  studioFloor.visible = studioGrid.visible = studio;
+  scene.background = studio ? studioBg : cityBg;
+  hemi.intensity = studio ? 2.2 : 1.0;
+
+  // button press, beacon, 911 signal
+  const pressed = t > 20.5;
+  btn.position.z = FZ + 0.02 - (t > 20.5 && t < 21.1 ? 0.03 : 0);
+  btnMat.emissiveIntensity = pressed ? 1.5 + Math.sin(t * 8) : 0.2;
+  person.right.rotation.x = -1.3 * ss(19.6, 20.3, t) * (1 - ss(21.3, 22, t));
+  const active = (pressed && t < 44) || (t > 50.3 && t < 55);
+  ledMat.color.set(active ? 0xff2222 : 0x22ff66); ledMat.emissive.copy(ledMat.color);
+  ledMat.emissiveIntensity = active && Math.floor(t * 4) % 2 ? 0.2 : 1.5;
+  const bf = active ? (Math.sin(t * 10) > 0 ? 3 : 0.3) : 0;
+  beaconMat.emissiveIntensity = bf; beaconLight.intensity = bf * 15;
+  signalRings.forEach((r, i) => {
+    const k = ((t - 21) * 0.6 + i / 3) % 1; r.visible = active && t > 21;
+    if (t > 50.3) r.material.color.set(0xff6666);
+    r.position.set(P.x, 7.2 + k * 8, P.z); r.scale.setScalar(0.5 + k * 4); r.material.opacity = (1 - k) * 0.8;
+  });
+  const talking = t > 26.6 && t < 34;
+  soundRings.forEach((r, i) => {
+    const k = ((t * 1.2) + i / 3) % 1; r.visible = talking;
+    const src = (Math.floor(t / 4) % 2) ? mic.position : grille.position;
+    r.position.set(src.x, src.y, FZ + 0.05 + k * 0.4); r.scale.setScalar(0.05 + k * 0.35); r.material.opacity = (1 - k) * 0.7;
+  });
+
+  const [cp, cl] = camAt(t); camera.position.copy(cp); camera.lookAt(cl);
+  camera.updateMatrixWorld();
+
+  // overlays
+  ui('title').style.opacity = fade(t, 0.5, 5.5);
+  const c = captions.find(([a, b]) => t >= a && t < b);
+  ui('caption').textContent = c ? c[2] : '';
+  ui('caption').style.opacity = c ? fade(t, c[0], c[1]) : 0;
+  const lab = fade(t, 14.5, 19.3);
+  for (const [id, v, dy, dx] of [['lBtn', btn.position, -110, 0], ['lSpk', grille.position, 60, -140], ['lMic', mic.position, 60, 120]]) {
+    proj(v, ui(id), dy, dx); ui(id).style.opacity = lab;
+  }
+  ui('info').style.opacity = fade(t, 7, 12.5);
+  ui('info').querySelectorAll('div').forEach((d, i) => d.style.opacity = ss(7.5 + i * 0.6, 8 + i * 0.6, t));
+  ui('b911').style.opacity = fade(t, 26.6, 34.5);
+  ui('bme').style.opacity = fade(t, 28.5, 34.5);
+  ui('auto').style.opacity = fade(t, 36, 43.5);
+  const lr = fade(t, 44.8, 47.5);
+  proj(RAD, ui('lRad'), 40); ui('lRad').style.opacity = lr;
+  proj(DISP, ui('lDisp'), -90, -40); ui('lDisp').style.opacity = lr;
+  ui('radar').style.opacity = fade(t, 50.6, 55.3);
+  parts.forEach((g, i) => {
+    proj(g.userData.anchor.clone().add(g.position), plabels[i], 30);
+    plabels[i].style.opacity = fade(t, X.labels + i * 1.6, X.cost);
+  });
+  ui('cost').style.opacity = fade(t, X.cost + 0.3, X.impl);
+  ui('impl').style.opacity = fade(t, X.impl + 0.3, X.end);
+  ui('impl').querySelectorAll('li').forEach((li, i) => li.style.opacity = ss(X.impl + 1 + i * 2.4, X.impl + 1.5 + i * 2.4, t));
+  ui('end').style.opacity = ss(X.end, X.end + 1, t);
+  renderer.render(scene, camera);
+};
+window.render(0);
+</script>
+</body>
+</html>
