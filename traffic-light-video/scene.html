@@ -1,0 +1,276 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>SafeSignal Traffic Light</title>
+<style>
+  html, body { margin: 0; width: 1280px; height: 720px; overflow: hidden; background: #0b1220; font-family: "Helvetica Neue", Arial, sans-serif; }
+  canvas { display: block; }
+  #ui > div { position: absolute; opacity: 0; color: #fff; }
+  #title { left: 0; right: 0; top: 220px; text-align: center; }
+  #title h1 { font-size: 64px; margin: 0; letter-spacing: 2px; text-shadow: 0 4px 24px #000; }
+  #title p { font-size: 26px; margin: 12px 0 0; color: #ffd75e; text-shadow: 0 2px 12px #000; }
+  #caption { left: 140px; right: 140px; bottom: 44px; text-align: center; font-size: 30px; font-weight: 600;
+             background: rgba(5,10,25,.72); border-radius: 14px; padding: 16px 24px; }
+  .label { font-size: 20px; font-weight: 700; background: #ffd75e; color: #111 !important; padding: 6px 12px; border-radius: 8px;
+           transform: translate(-50%, -100%); white-space: nowrap; box-shadow: 0 4px 14px rgba(0,0,0,.5); }
+  .bubble { max-width: 470px; font-size: 24px; padding: 16px 20px; border-radius: 18px; box-shadow: 0 6px 20px rgba(0,0,0,.5); }
+  #b911 { left: 60px; top: 70px; background: #1d4ed8; }
+  #bme { right: 60px; top: 190px; background: #16a34a; }
+  #info { right: 60px; top: 60px; width: 360px; background: rgba(5,10,25,.82); border: 2px solid #ffd75e; border-radius: 14px; padding: 18px 22px; font-size: 22px; }
+  #info h3 { margin: 0 0 10px; color: #ffd75e; font-size: 24px; }
+  #info div { margin: 8px 0; opacity: 0; }
+  #auto { left: 60px; top: 60px; background: rgba(5,10,25,.82); border: 2px solid #38bdf8; border-radius: 14px; padding: 16px 22px; font-size: 22px; line-height: 1.6; }
+  #end { left: 0; right: 0; top: 0; bottom: 0; background: rgba(5,10,25,.78); text-align: center; padding-top: 180px; }
+  #end h1 { font-size: 60px; margin: 0; color: #ffd75e; }
+  #end p { font-size: 28px; margin: 18px 0; }
+</style>
+</head>
+<body>
+<div id="ui">
+  <div id="title"><h1>SafeSignal</h1><p>The traffic light that lets you report dangerous drivers to 911</p></div>
+  <div id="caption"></div>
+  <div class="label" id="lBtn">SOS button → 911</div>
+  <div class="label" id="lSpk">Speaker</div>
+  <div class="label" id="lMic">Microphone</div>
+  <div class="bubble" id="b911">🚓 911 Dispatch: "911, you're calling from the light at Main &amp; 5th. What's your emergency?"</div>
+  <div class="bubble" id="bme">🗣️ "A red Toyota Camry, plate ABC-1234, swerving all over the road, heading north!"</div>
+  <div id="info"><h3>Details you can give</h3>
+    <div>🔢 Plate number</div><div>🎨 Color</div><div>🚗 Make &amp; model</div><div>🧭 Direction of travel</div><div>⚠️ What you saw</div></div>
+  <div id="auto">📍 Location sent automatically<br>🕒 Time stamped<br>📷 Intersection camera snapshot<br>🔵 Beacon flashes so help is coming</div>
+  <div id="end"><h1>See it. Press it. Report it.</h1>
+    <p>🔴 One-touch 911 button &nbsp; 🔊 Two-way speaker &nbsp; 🎙️ Microphone</p>
+    <p>Hands-free reporting, right at the intersection.</p></div>
+</div>
+<script src="../node_modules/three/build/three.min.js"></script>
+<script>
+const W = 1280, H = 720;
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(W, H);
+renderer.shadowMap.enabled = true;
+document.body.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a2540);
+scene.fog = new THREE.Fog(0x1a2540, 60, 140);
+const camera = new THREE.PerspectiveCamera(50, W / H, 0.1, 300);
+
+scene.add(new THREE.HemisphereLight(0x9fb8ff, 0x303030, 1.0));
+const sun = new THREE.DirectionalLight(0xfff1d6, 1.1);
+sun.position.set(30, 40, 20);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -40, right: 40, top: 40, bottom: -40 });
+scene.add(sun);
+
+const mat = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.6, ...o });
+const box = (w, h, d, m) => { const x = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); x.castShadow = x.receiveShadow = true; return x; };
+const cyl = (r, h, m, seg = 24) => { const x = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, seg), m); x.castShadow = true; return x; };
+function textTex(text, w, h, bg, fg, font) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d'); g.fillStyle = bg; g.fillRect(0, 0, w, h);
+  g.fillStyle = fg; g.font = font; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, w / 2, h / 2);
+  return new THREE.CanvasTexture(c);
+}
+let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+
+// --- ground, roads, sidewalks ---
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(300, 300), mat(0x2f4a2f));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+const asphalt = mat(0x2a2a2e, { roughness: 0.9 });
+for (const [w, d] of [[8, 300], [300, 8]]) { const r = box(w, 0.05, d, asphalt); r.position.y = 0.02; scene.add(r); }
+const walk = mat(0x8a8a8a);
+for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+  const s = box(60, 0.2, 60, walk); s.position.set(sx * 34.5, 0.1, sz * 34.5); scene.add(s);
+}
+const dash = mat(0xffd34d, { emissive: 0x332200 });
+for (let i = -70; i < 70; i += 4) {
+  if (Math.abs(i) < 6) continue;
+  const a = box(0.2, 0.06, 2, dash); a.position.set(0, 0.05, i); scene.add(a);
+  const b = box(2, 0.06, 0.2, dash); b.position.set(i, 0.05, 0); scene.add(b);
+}
+for (let i = -3; i <= 3; i++) for (const s of [-1, 1]) { // crosswalks
+  const a = box(0.6, 0.06, 2.5, mat(0xeeeeee)); a.position.set(i * 1.1, 0.05, s * 5.5); scene.add(a);
+  const b = box(2.5, 0.06, 0.6, mat(0xeeeeee)); b.position.set(s * 5.5, 0.05, i * 1.1); scene.add(b);
+}
+// buildings
+const bcols = [0x5b6b8c, 0x7a6a5a, 0x4f6f6f, 0x8c7b6b, 0x6b5b7b];
+for (const sx of [-1, 1]) for (const sz of [-1, 1]) for (let i = 0; i < 6; i++) {
+  const h = 6 + rnd() * 18, b = box(7, h, 7, mat(bcols[i % 5]));
+  const along = 12 + i * 9;
+  b.position.set(sx * (i % 2 ? along : 16 + rnd() * 6), h / 2 + 0.2, sz * (i % 2 ? 16 + rnd() * 6 : along));
+  scene.add(b);
+}
+
+// --- SafeSignal traffic light at corner (6, 0, 6) ---
+const metal = mat(0x3a3f47, { metalness: 0.6, roughness: 0.4 });
+const P = new THREE.Vector3(6, 0.2, 6);
+const pole = cyl(0.18, 6.5, metal); pole.position.set(P.x, P.y + 3.25, P.z); scene.add(pole);
+const arm = cyl(0.1, 6, metal); arm.rotation.z = Math.PI / 2; arm.position.set(P.x - 3, 6.3, P.z); scene.add(arm);
+const housing = box(0.9, 2.6, 0.7, mat(0x1d1d1d)); housing.position.set(1.8, 5.2, P.z); scene.add(housing);
+const lamps = [0xff2a2a, 0xffc21a, 0x22ff66].map((c, i) => {
+  const m = mat(c, { emissive: c, emissiveIntensity: 0 });
+  const l = new THREE.Mesh(new THREE.SphereGeometry(0.28, 20, 16), m);
+  l.position.set(1.8, 6.05 - i * 0.82, P.z - 0.38); scene.add(l); return m;
+});
+// pole-mounted call box facing +z (toward sidewalk)
+const callBox = box(0.7, 1.0, 0.25, mat(0xffd21f, { metalness: 0.2 })); callBox.position.set(P.x, 1.5, P.z + 0.3); scene.add(callBox);
+const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.18), new THREE.MeshBasicMaterial({ map: textTex('EMERGENCY 911', 512, 150, '#c1121f', '#fff', 'bold 58px Arial') }));
+sign.position.set(P.x, 1.88, P.z + 0.43); scene.add(sign);
+const btnMat = mat(0xff1f1f, { emissive: 0xff0000, emissiveIntensity: 0.2 });
+const btn = cyl(0.14, 0.1, btnMat); btn.rotation.x = Math.PI / 2; btn.position.set(P.x, 1.45, P.z + 0.45); scene.add(btn);
+const ring = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.025, 8, 32), metal); ring.position.set(P.x, 1.45, P.z + 0.44); scene.add(ring);
+const grille = new THREE.Group();
+for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) {
+  const h = cyl(0.025, 0.02, mat(0x111111), 8); h.rotation.x = Math.PI / 2; h.position.set(c * 0.08 - 0.12, r * 0.07, 0); grille.add(h);
+}
+grille.position.set(P.x - 0.1, 1.68, P.z + 0.435); scene.add(grille);
+const mic = new THREE.Mesh(new THREE.SphereGeometry(0.045, 16, 12), mat(0x222222, { metalness: 0.5 })); mic.position.set(P.x + 0.22, 1.72, P.z + 0.44); scene.add(mic);
+const beaconMat = mat(0x2266ff, { emissive: 0x2266ff, emissiveIntensity: 0, transparent: true, opacity: 0.9 });
+const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.3, 20, 16), beaconMat); beacon.position.set(P.x, 6.75, P.z); scene.add(beacon);
+const beaconLight = new THREE.PointLight(0x3377ff, 0, 25); beaconLight.position.copy(beacon.position); scene.add(beaconLight);
+const ringMat = new THREE.MeshBasicMaterial({ color: 0x66aaff, transparent: true, side: THREE.DoubleSide });
+const signalRings = [0, 1, 2].map(() => { const m = new THREE.Mesh(new THREE.TorusGeometry(1, 0.05, 8, 48), ringMat.clone()); m.rotation.x = Math.PI / 2; scene.add(m); return m; });
+const soundRings = [0, 1, 2].map(() => { const m = new THREE.Mesh(new THREE.RingGeometry(0.9, 1, 40), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, side: THREE.DoubleSide })); scene.add(m); return m; });
+
+// witness
+const person = new THREE.Group();
+const body = cyl(0.25, 1.1, mat(0x2563eb)); body.position.y = 0.95; person.add(body);
+const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 12), mat(0xe0b18a)); head.position.y = 1.72; person.add(head);
+const legs = cyl(0.2, 0.5, mat(0x222244)); legs.position.y = 0.25; person.add(legs);
+const armR = cyl(0.07, 0.6, mat(0x2563eb)); armR.position.set(0.18, 1.2, -0.3); armR.rotation.x = -1.2; person.add(armR);
+person.position.set(P.x + 0.8, 0.2, P.z + 1.1); person.rotation.y = Math.PI + 0.55; scene.add(person);
+
+// --- cars ---
+function makeCar(color, plate) {
+  const g = new THREE.Group();
+  const b = box(1.9, 0.6, 4.2, mat(color, { metalness: 0.4, roughness: 0.35 })); b.position.y = 0.6; g.add(b);
+  const cab = box(1.7, 0.55, 2.2, mat(0x223344, { metalness: 0.6, roughness: 0.2 })); cab.position.set(0, 1.15, -0.2); g.add(cab);
+  for (const x of [-0.95, 0.95]) for (const z of [-1.35, 1.35]) {
+    const w = cyl(0.36, 0.3, mat(0x111111)); w.rotation.z = Math.PI / 2; w.position.set(x, 0.36, z); g.add(w);
+  }
+  for (const x of [-0.6, 0.6]) {
+    const hl = box(0.4, 0.15, 0.05, mat(0xffffee, { emissive: 0xffffcc, emissiveIntensity: 1 })); hl.position.set(x, 0.7, 2.11); g.add(hl);
+    const tl = box(0.4, 0.15, 0.05, mat(0xff2222, { emissive: 0xff0000, emissiveIntensity: 0.8 })); tl.position.set(x, 0.7, -2.11); g.add(tl);
+  }
+  if (plate) {
+    const p = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.25), new THREE.MeshBasicMaterial({ map: textTex(plate, 256, 90, '#f4f4f4', '#0b2a8a', 'bold 56px Arial') }));
+    p.position.set(0, 0.5, -2.13); p.rotation.y = Math.PI; g.add(p);
+  }
+  scene.add(g); return g;
+}
+const drunk = makeCar(0xc81e1e, 'ABC-1234');
+const police = makeCar(0xf2f2f2);
+const pBar = new THREE.Group(); pBar.position.set(0, 1.5, -0.2); police.add(pBar);
+const redM = mat(0xff0000, { emissive: 0xff0000 }), blueM = mat(0x0044ff, { emissive: 0x0044ff });
+const pr = box(0.6, 0.18, 0.3, redM); pr.position.x = -0.35; pBar.add(pr);
+const pb = box(0.6, 0.18, 0.3, blueM); pb.position.x = 0.35; pBar.add(pb);
+const pLight = new THREE.PointLight(0xff0000, 0, 15); pLight.position.set(0, 2, 0); police.add(pLight);
+const traffic = [0x3b82f6, 0x9ca3af, 0x10b981].map(c => makeCar(c));
+
+// --- timeline helpers ---
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+const ss = (a, b, t) => { const x = clamp((t - a) / (b - a), 0, 1); return x * x * (3 - 2 * x); };
+const fade = (t, a, b, f = 0.5) => ss(a, a + f, t) * (1 - ss(b - f, b, t));
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+const shots = [ // [time, camera pos, look target]
+  [0, V(3, 26, 48), V(0, 2, 0)],
+  [4, V(3, 14, 34), V(0, 2, 0)],
+  [6, V(9, 3, 16), V(-1, 1, -10)],
+  [11.5, V(9, 3, 16), V(-2, 1, 4)],
+  [13.5, V(5.2, 1.9, 9.2), V(6, 1.55, 6.3)],
+  [19, V(5.4, 1.75, 8.2), V(6, 1.6, 6.3)],
+  [20.5, V(14, 6, 18), V(6, 4, 6)],
+  [24, V(13, 7, 17), V(6, 4.5, 6)],
+  [25.5, V(5.3, 1.8, 8.6), V(6, 1.6, 6.3)],
+  [34, V(5.4, 1.8, 8.4), V(6, 1.6, 6.3)],
+  [35.5, V(-12, 9, 34), V(1, 1, 18)],
+  [42, V(-8, 7, 30), V(1, 1, 20)],
+  [44, V(-3, 22, 46), V(0, 2, 6)],
+  [50, V(-3, 28, 54), V(0, 2, 6)],
+];
+function camAt(t) {
+  let i = 0; while (i < shots.length - 2 && t > shots[i + 1][0]) i++;
+  const [t0, p0, l0] = shots[i], [t1, p1, l1] = shots[i + 1], k = ss(t0, t1, t);
+  return [p0.clone().lerp(p1, k), l0.clone().lerp(l1, k)];
+}
+const drunkX = z => -2 + Math.sin(z * 0.35) * 1.6;
+const ui = id => document.getElementById(id);
+const proj = (v, el, dy = 0, dx = 0) => {
+  const p = v.clone().project(camera);
+  el.style.left = ((p.x + 1) / 2 * W + dx) + 'px'; el.style.top = ((1 - p.y) / 2 * H - dy) + 'px';
+};
+const captions = [
+  [1, 5, ''],
+  [5.5, 12.5, 'You spot a drunk or dangerous driver swerving through the intersection…'],
+  [13, 19.5, 'Every SafeSignal pole has an emergency call box at hand height.'],
+  [19.5, 25, 'Press the red SOS button — the light calls 911 and its blue beacon starts flashing.'],
+  [25, 34.5, 'Talk hands-free through the speaker and microphone: give the plate, color, make and model.'],
+  [34.5, 43.5, 'Dispatch gets your location instantly, and officers are sent to stop the driver.'],
+];
+
+window.DURATION = 50;
+window.render = function (t) {
+  // signal: steady green except a short cycle, for realism
+  const ph = (t % 20) / 20, st = ph < 0.6 ? 2 : ph < 0.7 ? 1 : 0;
+  lamps.forEach((m, i) => m.emissiveIntensity = i === st ? 2 : 0.05);
+
+  // drunk driver weaves north (-z → +z) then is pulled over
+  if (t < 34) {
+    const z = -60 + clamp((t - 5) / 8, 0, 1.3) * 80, dz = 0.01;
+    drunk.position.set(drunkX(z), 0.2, z);
+    drunk.rotation.y = Math.atan2(drunkX(z + dz) - drunkX(z), dz) * 0.6;
+  } else {
+    drunk.position.set(-2.5, 0.2, 22); drunk.rotation.y = 0;
+  }
+  // police: drives in after dispatch
+  const pz = -60 + ss(34.5, 40, t) * 77; police.position.set(-2.5, 0.2, pz); police.visible = t > 34.5;
+  const flash = Math.floor(t * 6) % 2;
+  redM.emissiveIntensity = flash ? 3 : 0.1; blueM.emissiveIntensity = flash ? 0.1 : 3;
+  pLight.color.set(flash ? 0xff0000 : 0x0044ff); pLight.intensity = police.visible ? 40 : 0;
+  // background traffic on the cross street
+  traffic.forEach((c, i) => { const x = ((t * 8 + i * 30) % 120) - 60; c.position.set(x, 0.2, i % 2 ? 2 : -2); c.rotation.y = i % 2 ? -Math.PI / 2 : Math.PI / 2; c.visible = t < 4 || t > 44; });
+
+  // button press + beacon + 911 signal
+  const pressed = t > 17.5;
+  btn.position.z = P.z + 0.45 - (t > 17.5 && t < 18.1 ? 0.04 : 0);
+  btnMat.emissiveIntensity = pressed ? 1.5 + Math.sin(t * 8) : 0.2;
+  armR.rotation.x = -1.2 - (t > 16.8 && t < 18.3 ? 0.35 : 0);
+  const active = pressed && t < 44;
+  const bf = active ? (Math.sin(t * 10) > 0 ? 3 : 0.3) : 0;
+  beaconMat.emissiveIntensity = bf; beaconLight.intensity = bf * 15;
+  signalRings.forEach((r, i) => {
+    const k = ((t - 18) * 0.6 + i / 3) % 1; r.visible = active && t > 18;
+    r.position.set(P.x, 7 + k * 8, P.z); r.scale.setScalar(0.5 + k * 4); r.material.opacity = (1 - k) * 0.8;
+  });
+  const talking = t > 26 && t < 34;
+  soundRings.forEach((r, i) => {
+    const k = ((t * 1.2) + i / 3) % 1; r.visible = talking;
+    const src = (Math.floor(t / 4) % 2) ? mic.position : grille.position;
+    r.position.set(src.x + 0.05, src.y + 0.05, P.z + 0.5 + k * 0.4); r.scale.setScalar(0.05 + k * 0.35); r.material.opacity = (1 - k) * 0.7;
+  });
+
+  const [cp, cl] = camAt(t); camera.position.copy(cp); camera.lookAt(cl);
+  camera.updateMatrixWorld();
+
+  // overlays
+  ui('title').style.opacity = fade(t, 0.5, 5.5);
+  const c = captions.find(([a, b]) => t >= a && t < b);
+  ui('caption').textContent = c ? c[2] : '';
+  ui('caption').style.opacity = c && c[2] ? fade(t, c[0], c[1]) : 0;
+  const lab = fade(t, 14.5, 19.3);
+  for (const [id, v, dy, dx] of [['lBtn', btn.position, -110, 0], ['lSpk', grille.position.clone().add(V(0.1, 0.07, 0)), 60, -140], ['lMic', mic.position, 60, 120]]) {
+    proj(v, ui(id), dy, dx); ui(id).style.opacity = lab;
+  }
+  ui('b911').style.opacity = fade(t, 26, 34.5);
+  ui('bme').style.opacity = fade(t, 28.5, 34.5);
+  ui('info').style.opacity = fade(t, 7, 12.5);
+  ui('info').querySelectorAll('div').forEach((d, i) => d.style.opacity = ss(7.5 + i * 0.6, 8 + i * 0.6, t));
+  ui('auto').style.opacity = fade(t, 36, 43.5);
+  ui('end').style.opacity = ss(44, 45, t);
+  renderer.render(scene, camera);
+};
+window.render(0);
+</script>
+</body>
+</html>
